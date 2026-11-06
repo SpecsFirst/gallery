@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}{{ v.name }} - {{ site.title }}{% endblock %}
+{% block content %}
+<nav aria-label="Breadcrumb" class="crumbs"><a href="{{ root }}">&larr; All templates</a></nav>
+
+<article class="template">
+  <header>
+    <h1>{{ v.name }}</h1>
+    <p class="lead">{{ v.description }}</p>
+    <ul class="chips" aria-label="Kind and tags">
+      <li class="chip kind">{{ v.kind }}</li>
+      {% for tag in v.tags %}
+      <li class="chip">{{ tag }}</li>
+      {% endfor %}
+    </ul>
+    <p class="votes"><span aria-hidden="true">&#128077;</span> {{ v.votes }} {{ 'vote' if v.votes == 1 else 'votes' }}</p>
+  </header>
+
+  {% if v.notice %}
+  <p class="notice" role="note">{{ v.notice }}</p>
+  {% endif %}
+
+  <section aria-labelledby="repo-title">
+    <h2 id="repo-title">Source</h2>
+    <dl class="details">
+      <dt>Repository</dt>
+      <dd>{% if v.repo_link %}<a href="{{ v.repo_link }}" rel="nofollow noopener noreferrer">{{ v.url }}</a>{% else %}{{ v.url }}{% endif %}</dd>
+      {% if v.path %}<dt>Path</dt><dd><code>{{ v.path }}</code></dd>{% endif %}
+      {% if v.ref %}<dt>Ref</dt><dd><code>{{ v.ref }}</code></dd>{% endif %}
+      <dt>Language</dt>
+      <dd>{{ v.language }}</dd>
+    </dl>
+  </section>
+
+  {% if v.command %}
+  <section aria-labelledby="use-title">
+    <h2 id="use-title">Use it with Copier</h2>
+    <p>Replace <code>&lt;name&gt;</code> with the name of your new project.</p>
+    <div class="command"><pre tabindex="0"><code>{{ v.command }}</code></pre></div>
+  </section>
+  {% endif %}
+
+  {% if v.state == 'ok' %}
+  <section aria-labelledby="preview-title">
+    <h2 id="preview-title">Preview of main.md</h2>
+    {% if v.preview %}
+    <div class="preview" lang="{{ v.language }}">{{ v.preview }}</div>
+    {% else %}
+    <p>This template has no main.md to preview.</p>
+    {% endif %}
+  </section>
+
+  <section aria-labelledby="detected-title">
+    <h2 id="detected-title">Detected information</h2>
+    <dl class="details">
+      <dt>License</dt>
+      <dd>{{ v.license }}</dd>
+      <dt>Copier</dt>
+      <dd>{{ 'Yes, it has a copier.yml' if v.copier else 'No copier.yml found' }}</dd>
+      <dt>Tools</dt>
+      <dd>{% if v.tools %}{{ v.tools|join(', ') }}{% else %}None detected{% endif %}</dd>
+      {% if v.updated_date %}
+      <dt>Last update</dt>
+      <dd><time datetime="{{ v.updated_iso }}">{{ v.updated_date }}</time></dd>
+      {% endif %}
+      {% if v.commit %}
+      <dt>Commit</dt>
+      <dd><code>{{ v.commit }}</code></dd>
+      {% endif %}
+    </dl>
+    {% if v.tree %}
+    <h3>Files</h3>
+    <pre class="tree" tabindex="0"><code>{{ v.tree|join('\n') }}</code></pre>
+    {% if v.tree_truncated %}<p class="hint">The file list is truncated: only the first entries are shown.</p>{% endif %}
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <section id="discussion" aria-labelledby="discussion-title">
+    <h2 id="discussion-title">Votes and comments</h2>
+    <p>To vote, react with &#128077; on the first post of the thread below. Voting and commenting need a GitHub account.</p>
+    <noscript><p class="hint">The discussion needs JavaScript.</p></noscript>
+    <div class="giscus"></div>
+    <script src="https://giscus.app/client.js"
+      data-repo="{{ site.giscus.repo }}"
+      data-repo-id="{{ site.giscus.repo_id }}"
+      data-category="{{ site.giscus.category }}"
+      data-category-id="{{ site.giscus.category_id }}"
+      data-mapping="specific"
+      data-term="{{ v.id }}"
+      data-strict="1"
+      data-reactions-enabled="1"
+      data-emit-metadata="0"
+      data-input-position="top"
+      data-theme="preferred_color_scheme"
+      data-lang="en"
+      data-loading="lazy"
+      crossorigin="anonymous"
+      async></script>
+  </section>
+</article>
+{% endblock %}

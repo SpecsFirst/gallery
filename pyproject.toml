@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "SpecsFirst gallery: registry, validation and static site for spec templates."
 requires-python = ">=3.12"
 dependencies = [
+    "jinja2>=3.1.6",
     "jsonschema>=4.21",
+    "markdown-it-py>=4.2.0",
     "pyyaml>=6.0",
 ]
 
