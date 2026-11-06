@@ -1,0 +1,11 @@
+# Public configuration of the static site, read by `python -m gallery.build`.
+# Everything here is public: the giscus ids come from the GitHub API.
+
+title: SpecsFirst gallery
+tagline: Spec templates for agent-driven projects. Filter them, read them, vote.
+
+giscus:
+  repo: SpecsFirst/gallery
+  repo_id: R_kgDOVlEEaQ
+  category: Templates
+  category_id: DIC_kwDOVlEEac4DKhwb

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="intro" aria-labelledby="page-title">
+  <h1 id="page-title">{{ site.title }}</h1>
+  <p class="tagline">{{ site.tagline }}</p>
+  <p>
+    <a class="button" href="{{ site.contributing_url }}" rel="noopener noreferrer">Submit a template</a>
+    <span class="hint">A pull request with one small file, see CONTRIBUTING.md.</span>
+  </p>
+</section>
+
+{% if cards %}
+<section id="filters" class="filters" aria-labelledby="filters-title" hidden>
+  <h2 id="filters-title">Filter and sort</h2>
+  <fieldset>
+    <legend>Kind</legend>
+    <div class="options">
+      <label class="option"><input type="radio" name="kind" value="" checked> All</label>
+      {% for kind in filters.kinds %}
+      <label class="option" title="{{ kind.description }}"><input type="radio" name="kind" value="{{ kind.name }}"> {{ kind.name }}</label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  {% if filters.groups %}
+  <div class="tag-filters" role="group" aria-labelledby="tags-title">
+    <h3 id="tags-title">Tags</h3>
+    <p class="hint">Select several tags to see the templates that have all of them.</p>
+    {% for group in filters.groups %}
+    <fieldset>
+      <legend>{{ group.name }}</legend>
+      <div class="options">
+        {% for tag in group.tags %}
+        <label class="option" title="{{ tag.description }}"><input type="checkbox" name="tag" value="{{ tag.name }}"> {{ tag.name }}</label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div class="controls">
+    <label for="sort">Sort by</label>
+    <select id="sort" name="sort">
+      <option value="votes" selected>Most votes</option>
+      <option value="updated">Latest update</option>
+    </select>
+    <button type="button" id="clear" hidden>Clear filters</button>
+  </div>
+</section>
+{% endif %}
+
+<section aria-labelledby="list-title">
+  <h2 id="list-title">Templates</h2>
+  {% if cards %}
+  <p id="count" class="count" role="status" aria-live="polite" aria-atomic="true" hidden></p>
+  <ul id="cards" class="cards">
+    {% for v in cards %}
+    <li class="card" data-id="{{ v.id }}" data-kind="{{ v.kind }}" data-tags='{{ v.tags|tojson }}' data-votes="{{ v.votes }}" data-updated="{{ v.updated_ts if v.updated_ts is not none else '' }}" data-name="{{ v.sort_name }}">
+      <h3><a href="templates/{{ v.id }}/">{{ v.name }}</a></h3>
+      <p class="description">{{ v.description }}</p>
+      <ul class="chips" aria-label="Kind and tags">
+        <li class="chip kind">{{ v.kind }}</li>
+        {% for tag in v.tags %}
+        <li class="chip">{{ tag }}</li>
+        {% endfor %}
+      </ul>
+      <ul class="facts">
+        <li class="votes"><span aria-hidden="true">&#128077;</span> {{ v.votes }} {{ 'vote' if v.votes == 1 else 'votes' }}</li>
+        {% if v.license %}<li>{{ v.license }}</li>{% endif %}
+        {% if v.updated_date %}<li>Updated <time datetime="{{ v.updated_iso }}">{{ v.updated_date }}</time></li>{% endif %}
+        {% if v.copier %}<li>Copier template</li>{% endif %}
+        {% if v.tools %}<li>Tools: {{ v.tools|join(', ') }}</li>{% endif %}
+      </ul>
+    </li>
+    {% endfor %}
+  </ul>
+  <p id="empty" class="empty" hidden>No template matches these filters. <button type="button" id="empty-clear">Clear filters</button></p>
+  {% else %}
+  <p>No template has been published yet.</p>
+  {% endif %}
+</section>
+{% endblock %}
