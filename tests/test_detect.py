@@ -826,3 +826,15 @@ def test_cli_fails_when_the_output_cannot_be_written(tmp_path: Path):
 def test_cli_requires_output():
     with pytest.raises(SystemExit):
         main([])
+
+
+@pytest.mark.parametrize("url", ["https://[bad", "https://[bad/x"])
+def test_unparsable_url_is_an_invalid_entry(url: str):
+    result = detect_entry(make_entry(url), make_options())
+    assert result["status"] == "failed"
+    assert result["error"] == "invalid_entry"
+
+
+def test_identify_lgpl_2_1():
+    text = "GNU LESSER GENERAL PUBLIC LICENSE\nVersion 2.1, February 1999\n"
+    assert detect.identify_license(text) == "LGPL-2.1"

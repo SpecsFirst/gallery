@@ -199,7 +199,10 @@ def parse_target(fields: dict[str, Any], extra_protocols: Sequence[str]) -> Targ
     url = fields.get("url")
     if not isinstance(url, str) or _CONTROL_RE.search(url) or " " in url:
         raise invalid("url is not a clean string")
-    parts = urlsplit(url)
+    try:
+        parts = urlsplit(url)
+    except ValueError as exc:
+        raise invalid("url cannot be parsed") from exc
     allowed = {"https", *extra_protocols}
     if parts.scheme.lower() not in allowed:
         raise invalid("url is not https")
@@ -553,6 +556,7 @@ _GNU_RE = re.compile(
 _GNU_IDS = {
     ("", "2"): "GPL-2.0",
     ("", "3"): "GPL-3.0",
+    ("lesser ", "2.1"): "LGPL-2.1",
     ("lesser ", "3"): "LGPL-3.0",
     ("affero ", "3"): "AGPL-3.0",
 }
