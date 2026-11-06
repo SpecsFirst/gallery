@@ -521,3 +521,50 @@ def test_oversized_response_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
     transport = FakeTransport((200, b"x" * 11))
     with pytest.raises(VotesError):
         fetch_votes("o", "r", "c", ["alpha"], TOKEN, transport)
+
+
+def _bad_status_line(handler: BaseHTTPRequestHandler) -> None:
+    handler.wfile.write(b"REMOTE_TEXT\r\n\r\n")
+    handler.close_connection = True
+
+
+def _truncated_chunk(handler: BaseHTTPRequestHandler) -> None:
+    handler.send_response(200)
+    handler.send_header("Transfer-Encoding", "chunked")
+    handler.end_headers()
+    handler.wfile.write(b"ffff\r\nREMOTE_TEXT")
+    handler.close_connection = True
+
+
+def _deep_json(handler: BaseHTTPRequestHandler) -> None:
+    body = b"[" * 200_000
+    handler.send_response(200)
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+@pytest.mark.parametrize(
+    "behaviour",
+    [_bad_status_line, _truncated_chunk, _deep_json],
+    ids=lambda f: f.__name__,
+)
+def test_broken_response_is_a_clean_failure(
+    behaviour: Callable[[BaseHTTPRequestHandler], None],
+    root: Path,
+    tmp_path: Path,
+    capfd: pytest.CaptureFixture[str],
+) -> None:
+    server, _ = serve(behaviour)
+    out = tmp_path / "v.json"
+    try:
+        code = run(
+            root, lambda body, token: post_graphql(body, token, url_of(server)), out
+        )
+    finally:
+        server.shutdown()
+    captured = capfd.readouterr()
+    assert code == 1
+    assert not out.exists()
+    assert "REMOTE_TEXT" not in captured.out + captured.err
+    assert "Traceback" not in captured.err

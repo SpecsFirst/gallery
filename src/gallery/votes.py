@@ -19,6 +19,7 @@ Security model, in short:
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import os
 import sys
@@ -107,8 +108,9 @@ def _request_page(
     body = json.dumps({"query": QUERY, "variables": variables}).encode("utf-8")
     try:
         status, raw = transport(body, token)
-    except (OSError, ValueError):
-        # Network error, timeout (an OSError) or a refused header; never the detail.
+    except (OSError, ValueError, http.client.HTTPException):
+        # Network error, timeout (an OSError), a broken HTTP response (whose message
+        # quotes the remote text) or a refused header; never the detail.
         raise VotesError("request to the GitHub API failed") from None
     if status != 200:
         raise VotesError(f"unexpected HTTP status {status} from the GitHub API")
@@ -116,7 +118,7 @@ def _request_page(
         raise VotesError("the GitHub API response is too large")
     try:
         document = json.loads(raw)
-    except ValueError:
+    except (ValueError, RecursionError):
         raise VotesError("the GitHub API response is not valid JSON") from None
     return _check_page(document)
 
