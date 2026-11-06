@@ -130,6 +130,11 @@
 
     readUrl();
     filters.hidden = false;
+    // On a narrow screen the templates come first, unless a shared link set filters.
+    var query = new URLSearchParams(window.location.search);
+    if (window.matchMedia("(max-width: 40rem)").matches && !query.has("kind") && !query.has("tag")) {
+      document.getElementById("filter-panel").open = false;
+    }
     update();
   }
 

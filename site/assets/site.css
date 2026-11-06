@@ -114,8 +114,11 @@ button[type="button"]:not(.copy) { background: transparent; color: var(--accent)
   padding: 0.25rem 1rem 1rem;
   margin-top: 1.5rem;
 }
-.filters h2 { margin-top: 0.75rem; }
+.filters h2 { display: inline; margin: 0; font-size: 1.15rem; }
 .filters h3 { margin-top: 0.75rem; }
+.filters summary { cursor: pointer; padding: 0.75rem 0 0.5rem; }
+.tag-filters { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr)); gap: 0 1.5rem; }
+.tag-filters h3, .tag-filters .hint { grid-column: 1 / -1; }
 fieldset { border: 0; margin: 0.5rem 0; padding: 0; min-width: 0; }
 legend { font-weight: 600; padding: 0; margin-bottom: 0.25rem; }
 .options { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; }
@@ -173,6 +176,8 @@ select {
 
 .crumbs { margin: 1rem 0 0; }
 .votes { margin: 0.5rem 0 0; font-weight: 600; }
+.facts .votes { margin: 0; }
+.details + h3 { margin-top: 1.25rem; }
 
 .notice {
   margin: 1rem 0;

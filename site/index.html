@@ -1,17 +1,19 @@
 {% extends "base.html" %}
+{% block header %}{% endblock %}
 {% block content %}
-<section class="intro" aria-labelledby="page-title">
+<header class="intro">
   <h1 id="page-title">{{ site.title }}</h1>
   <p class="tagline">{{ site.tagline }}</p>
   <p>
     <a class="button" href="{{ site.contributing_url }}" rel="noopener noreferrer">Submit a template</a>
     <span class="hint">A pull request with one small file, see CONTRIBUTING.md.</span>
   </p>
-</section>
+</header>
 
 {% if cards %}
 <section id="filters" class="filters" aria-labelledby="filters-title" hidden>
-  <h2 id="filters-title">Filter and sort</h2>
+  <details id="filter-panel" open>
+  <summary><h2 id="filters-title">Filter and sort</h2></summary>
   <fieldset>
     <legend>Kind</legend>
     <div class="options">
@@ -45,6 +47,7 @@
     </select>
     <button type="button" id="clear" hidden>Clear filters</button>
   </div>
+  </details>
 </section>
 {% endif %}
 

@@ -11,9 +11,11 @@
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
+{% block header %}
 <header class="site-header">
   <a class="brand" href="{{ root or './' }}">{{ site.title }}</a>
 </header>
+{% endblock %}
 <main id="main">
 {% block content %}{% endblock %}
 </main>
