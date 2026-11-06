@@ -1,0 +1,5 @@
+name: Research thesis lab notebook
+url: https://github.com/SpecsFirst/template-research-thesis
+description: A specs repo kept as a lab notebook — pre-registered hypotheses, bench protocols, tasks for humans and agents.
+kind: research
+tags: [thesis, bench, open-science]

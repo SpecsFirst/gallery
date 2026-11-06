@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://specsfirst.github.io/gallery/schema/template.schema.json",
+  "title": "SpecsFirst gallery entry",
+  "description": "One file per template: templates/<id>.yml. Only four fields are required; the rest is detected by the gallery. New fields are only ever added as optional.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "url", "description", "kind"],
+  "properties": {
+    "name": { "type": "string", "minLength": 3, "maxLength": 60 },
+    "url": {
+      "description": "Public HTTPS address of the git repository, on any forge.",
+      "type": "string",
+      "pattern": "^https://[^\\s]+$"
+    },
+    "description": {
+      "description": "One sentence: who it is for and what makes it different.",
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 200
+    },
+    "kind": {
+      "description": "One kind from taxonomy.yml.",
+      "type": "string"
+    },
+    "tags": {
+      "description": "Up to 4 tags from taxonomy.yml.",
+      "type": "array",
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": { "type": "string" }
+    },
+    "path": {
+      "description": "Optional: subfolder holding the template, if not at the repo root.",
+      "type": "string"
+    },
+    "ref": {
+      "description": "Optional: tag or commit to show. Defaults to the default branch.",
+      "type": "string"
+    },
+    "language": {
+      "description": "Optional: ISO 639-1 code. Defaults to en.",
+      "type": "string",
+      "pattern": "^[a-z]{2}$",
+      "default": "en"
+    }
+  }
+}

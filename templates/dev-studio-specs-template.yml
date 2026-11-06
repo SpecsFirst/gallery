@@ -1,0 +1,5 @@
+name: Multi repo specs template
+url: https://gitlab.inria.fr/dev-studio/specs-template
+description: A model-agnostic specs repo driving several code repos, with task files as contracts between orchestrator and coder.
+kind: software
+tags: [multi-repo]

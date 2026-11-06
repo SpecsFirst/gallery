@@ -1,0 +1,32 @@
+# SpecsFirst gallery taxonomy
+#
+# Entries only declare a `kind` and a few `tags`. Everything else
+# (license, Copier support, tool-specific files, last update) is detected
+# by the gallery when it clones the template.
+#
+# How this file evolves:
+# - Add a tag: open a pull request here, saying which templates need it.
+# - Never delete or rename a tag: mark it `deprecated` with `replaced_by`.
+#   Old entries keep working and the gallery shows the new tag.
+# - `groups` only change how filters are displayed. Regrouping tags never
+#   requires touching the entries.
+
+kinds:
+  research: Research projects, from a thesis to a multi-team study.
+  software: Libraries, applications and services.
+  data: Data collection and processing pipelines.
+
+tags:
+  thesis:         A PhD thesis — one person, several years, hypotheses.
+  teaching:       Made for students and courses.
+  multi-repo:     One specs repo drives several code repos.
+  bench:          Tracks work beyond code — lab bench or fieldwork.
+  sensitive-data: Personal or health data; agents only see synthetic data.
+  open-science:   Pre-registration, reproducibility, data and code deposit.
+  security:       Strict agent permissions — own accounts, scoped keys.
+
+groups:
+  Project: [thesis, teaching]
+  Setup:   [multi-repo]
+  Work:    [bench]
+  Rigor:   [sensitive-data, open-science, security]
