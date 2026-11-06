@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from gallery.validate import main, validate
 from tests.helpers import VALID_ENTRY, write_entry, write_registry
 
@@ -218,3 +220,107 @@ def test_cli_main(tmp_path, capsys):
     root = write_registry(tmp_path)
     write_entry(root, "good", VALID_ENTRY)
     assert main(["--root", str(root)]) == 0
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda r: write_entry(r, "b", {**VALID_ENTRY, "kind": ["a"]}),
+        lambda r: write_entry(r, "b", {**VALID_ENTRY, "tags": [["x"]]}),
+        lambda r: write_entry(r, "b", {**VALID_ENTRY, "url": 123}),
+        lambda r: write_entry(r, "b", {**VALID_ENTRY, "url": "https://[bad"}),
+        lambda r: write_entry(r, "b", {**VALID_ENTRY, "path": 5}),
+    ],
+)
+def test_no_traceback_for_hostile_fields(tmp_path, mutate):
+    root = write_registry(tmp_path)
+    mutate(root)
+    assert validate(root) == 1
+
+
+def test_no_traceback_for_non_utf8_file(tmp_path):
+    root = write_registry(tmp_path)
+    (root / "templates" / "b.yml").write_bytes(b"\xff\xfe\x00\x80")
+    assert validate(root) == 1
+
+
+def test_broken_schema_is_error_not_crash(tmp_path):
+    root = write_registry(tmp_path)
+    (root / "schema" / "template.schema.json").write_text("{bad json", encoding="utf-8")
+    write_entry(root, "good", VALID_ENTRY)
+    assert validate(root) == 1
+
+
+def test_missing_schema_is_error_not_crash(tmp_path):
+    root = write_registry(tmp_path)
+    (root / "schema" / "template.schema.json").unlink()
+    write_entry(root, "good", VALID_ENTRY)
+    assert validate(root) == 1
+
+
+def test_missing_taxonomy_is_error_not_crash(tmp_path):
+    root = write_registry(tmp_path)
+    (root / "taxonomy.yml").unlink()
+    write_entry(root, "good", VALID_ENTRY)
+    assert validate(root) == 1
+
+
+@pytest.mark.parametrize(
+    "taxonomy",
+    [
+        "kinds: {r: R}\ntags: {a: A.}\ngroups:\n  X: notalist\n",
+        "tags: {a: A.}\ngroups: {}\n",
+        "kinds: {r: R}\ngroups: {}\n",
+        (
+            "kinds: {r: R}\n"
+            "tags:\n"
+            "  a:\n"
+            "    description: A\n"
+            "    deprecated: true\n"
+            "    replaced_by: [x]\n"
+            "groups: {}\n"
+        ),
+    ],
+)
+def test_taxonomy_structure_errors(tmp_path, taxonomy):
+    root = write_registry(tmp_path, taxonomy=taxonomy)
+    assert validate(root) == 1
+
+
+def test_templates_subfolder_is_error(tmp_path):
+    root = write_registry(tmp_path)
+    (root / "templates" / "sub").mkdir()
+    assert validate(root) == 1
+
+
+def test_templates_symlink_is_error_and_not_read(tmp_path, capsys):
+    root = write_registry(tmp_path)
+    target = tmp_path / "outside-secret.yml"
+    target.write_text("SECRET_CANARY: 12345\n", encoding="utf-8")
+    (root / "templates" / "link.yml").symlink_to(target)
+    assert validate(root) == 1
+    out = capsys.readouterr().out
+    assert "SECRET_CANARY" not in out
+
+
+def test_plain_output_stays_on_one_line(tmp_path, capsys):
+    root = write_registry(tmp_path)
+    name = "b\n::notice::x\n.yml"
+    (root / "templates" / name).write_text(
+        "name: x\nurl: nope\ndescription: a\nkind: y\n", encoding="utf-8"
+    )
+    validate(root)
+    out = capsys.readouterr().out
+    assert all("\n" not in line for line in out.splitlines())
+    assert not any(line.startswith("::notice") for line in out.splitlines())
+
+
+def test_annotation_file_property_escapes_colon_and_comma(tmp_path, capsys):
+    root = write_registry(tmp_path)
+    (root / "templates" / "a,line:9.yml").write_text(
+        "name: x\nurl: nope\ndescription: a\nkind: y\n", encoding="utf-8"
+    )
+    validate(root, in_actions=True)
+    out = capsys.readouterr().out
+    assert "file=templates/a%2Cline%3A9.yml" in out
+    assert "file=templates/a,line:9.yml" not in out

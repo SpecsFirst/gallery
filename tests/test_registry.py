@@ -169,3 +169,61 @@ def test_load_registry_uses_real_files(tmp_path):
     assert "research" in registry.taxonomy.kinds
     assert "thesis" in registry.taxonomy.active_tags
     assert len(registry.entries) == 2
+
+
+def test_load_registry_never_reads_symlink(tmp_path):
+    root = write_registry(tmp_path)
+    write_entry(root, "good", VALID_ENTRY)
+    secret = tmp_path / "outside-secret.yml"
+    secret.write_text("SECRET_CANARY: 12345\n", encoding="utf-8")
+    (root / "templates" / "evil.yml").symlink_to(secret)
+
+    registry = load_registry(root)
+    assert [e.id for e in registry.entries] == ["good"]
+
+
+def test_load_entry_non_utf8_raises(tmp_path):
+    root = write_registry(tmp_path)
+    schema = load_schema(root / "schema" / "template.schema.json")
+    path = root / "templates" / "bad.yml"
+    path.write_bytes(b"\xff\xfe\x00\x80")
+
+    with pytest.raises(RegistryError):
+        load_entry(path, schema)
+
+
+def test_load_schema_missing_raises(tmp_path):
+    root = write_registry(tmp_path)
+    (root / "schema" / "template.schema.json").unlink()
+    with pytest.raises(RegistryError):
+        load_schema(root / "schema" / "template.schema.json")
+
+
+def test_load_taxonomy_missing_raises(tmp_path):
+    root = write_registry(tmp_path)
+    (root / "taxonomy.yml").unlink()
+    with pytest.raises(RegistryError):
+        load_taxonomy(root / "taxonomy.yml")
+
+
+@pytest.mark.parametrize(
+    "taxonomy",
+    [
+        "kinds: {r: R}\ntags: {a: A.}\ngroups:\n  X: notalist\n",
+        "tags: {a: A.}\ngroups: {}\n",
+        "kinds: {r: R}\ngroups: {}\n",
+        (
+            "kinds: {r: R}\n"
+            "tags:\n"
+            "  a:\n"
+            "    description: A\n"
+            "    deprecated: true\n"
+            "    replaced_by: [x]\n"
+            "groups: {}\n"
+        ),
+    ],
+)
+def test_load_taxonomy_rejects_bad_structure(tmp_path, taxonomy):
+    root = write_registry(tmp_path, taxonomy=taxonomy)
+    with pytest.raises(RegistryError):
+        load_taxonomy(root / "taxonomy.yml")

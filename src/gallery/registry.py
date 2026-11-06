@@ -128,19 +128,27 @@ def load_taxonomy(path: Path) -> Taxonomy:
     Raises ``RegistryError`` on bad structure.
     """
     try:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise RegistryError(f"{path}: cannot read taxonomy: {exc}") from exc
+    try:
+        raw = yaml.safe_load(text)
     except yaml.YAMLError as exc:
         raise RegistryError(f"invalid YAML in {path}: {exc}") from exc
 
     if not isinstance(raw, dict):
         raise RegistryError(f"{path}: taxonomy must be a mapping")
 
-    kinds = raw.get("kinds", {})
+    if "kinds" not in raw:
+        raise RegistryError(f"{path}: missing 'kinds'")
+    kinds = raw["kinds"]
     if not isinstance(kinds, dict):
         raise RegistryError(f"{path}: 'kinds' must be a mapping")
     kinds = {name: str(desc) for name, desc in kinds.items()}
 
-    raw_tags = raw.get("tags", {})
+    if "tags" not in raw:
+        raise RegistryError(f"{path}: missing 'tags'")
+    raw_tags = raw["tags"]
     if not isinstance(raw_tags, dict):
         raise RegistryError(f"{path}: 'tags' must be a mapping")
     tags: dict[str, Tag] = {}
@@ -148,11 +156,16 @@ def load_taxonomy(path: Path) -> Taxonomy:
         if isinstance(value, str):
             tags[name] = Tag(name=name, description=value)
         elif isinstance(value, dict):
+            replaced_by = value.get("replaced_by")
+            if replaced_by is not None and not isinstance(replaced_by, str):
+                raise RegistryError(
+                    f"{path}: replaced_by of tag {name!r} must be a string"
+                )
             tags[name] = Tag(
                 name=name,
                 description=str(value.get("description", "")),
                 deprecated=bool(value.get("deprecated", False)),
-                replaced_by=value.get("replaced_by"),
+                replaced_by=replaced_by,
             )
         else:
             raise RegistryError(
@@ -162,25 +175,33 @@ def load_taxonomy(path: Path) -> Taxonomy:
     raw_groups = raw.get("groups", {})
     if not isinstance(raw_groups, dict):
         raise RegistryError(f"{path}: 'groups' must be a mapping")
-    groups = tuple(
-        Group(name=str(name), tags=tuple(str(t) for t in items))
-        for name, items in raw_groups.items()
-        if isinstance(items, list)
-    )
+    groups_list: list[Group] = []
+    for name, items in raw_groups.items():
+        if not isinstance(items, list):
+            raise RegistryError(f"{path}: group {name!r} must be a list of tags")
+        groups_list.append(
+            Group(name=str(name), tags=tuple(str(t) for t in items))
+        )
 
-    return Taxonomy(kinds=kinds, tags=tags, groups=groups)
+    return Taxonomy(kinds=kinds, tags=tags, groups=tuple(groups_list))
 
 
 def load_schema(path: Path) -> dict[str, Any]:
     """Load the JSON Schema file as a dict."""
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise RegistryError(f"{path}: cannot read schema: {exc}") from exc
+    try:
+        return json.loads(text)
     except json.JSONDecodeError as exc:
         raise RegistryError(f"invalid JSON in {path}: {exc}") from exc
 
 
-def _default_language(schema: dict[str, Any]) -> str:
+def _default_language(schema: dict[str, Any] | None) -> str:
     """The schema's default for the ``language`` field, or ``en``."""
+    if schema is None:
+        return "en"
     lang = schema.get("properties", {}).get("language", {})
     default = lang.get("default", "en")
     return str(default)
@@ -190,7 +211,11 @@ def load_entry(path: Path, schema: dict[str, Any]) -> Entry:
     """Load one ``templates/<id>.yml`` file into an ``Entry``."""
     entry_id = path.stem
     try:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise RegistryError(f"{path}: cannot read entry: {exc}") from exc
+    try:
+        raw = yaml.safe_load(text)
     except yaml.YAMLError as exc:
         raise RegistryError(f"invalid YAML in {path}: {exc}") from exc
 
@@ -208,7 +233,8 @@ def load_registry(root: Path) -> Registry:
     template_dir = root / "templates"
     entries = tuple(
         load_entry(path, schema)
-        for path in sorted(template_dir.glob("*.yml"))
+        for path in sorted(template_dir.iterdir())
+        if not path.is_symlink() and path.is_file() and path.suffix == ".yml"
     )
     return Registry(
         taxonomy=taxonomy,

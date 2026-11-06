@@ -39,17 +39,27 @@ class Issue:
         return self.level == "error"
 
 
-def _escape(value: str) -> str:
-    """Escape a value so it cannot inject GitHub workflow commands."""
+def _escape_data(value: str) -> str:
+    """Escape a value so it cannot inject GitHub workflow commands (data)."""
     return value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
 
 
+def _escape_property(value: str) -> str:
+    """Escape a value for an annotation property (also ':' and ',')."""
+    return _escape_data(value).replace(":", "%3A").replace(",", "%2C")
+
+
+def _plain(value: str) -> str:
+    """Neutralize CR/LF so a printed issue always stays on one line."""
+    return value.replace("\r", "\\r").replace("\n", "\\n")
+
+
 def _print_issue(issue: Issue, in_actions: bool) -> None:
-    print(f"{issue.file}: {issue.level}: {issue.message}")
+    print(f"{_plain(str(issue.file))}: {issue.level}: {_plain(issue.message)}")
     if in_actions:
         print(
-            f"::{issue.level} file={_escape(str(issue.file))}::"
-            f"{_escape(issue.message)}"
+            f"::{issue.level} file={_escape_property(str(issue.file))}::"
+            f"{_escape_data(issue.message)}"
         )
 
 
@@ -70,11 +80,15 @@ def _check_entry(entry, path: Path, taxonomy, schema, issues: list[Issue]) -> No
         )
 
     kind = data.get("kind")
-    if kind is not None and kind not in taxonomy.kinds:
+    if isinstance(kind, str) and kind not in taxonomy.kinds:
         issues.append(Issue(file=path, message=f"kind {kind!r} is not in the taxonomy"))
 
-    tags = data.get("tags") or []
+    tags = data.get("tags")
+    if not isinstance(tags, list):
+        tags = []
     for tag in tags:
+        if not isinstance(tag, str):
+            continue
         tax_tag = taxonomy.tags.get(tag)
         if tax_tag is None:
             issues.append(
@@ -92,13 +106,19 @@ def _check_entry(entry, path: Path, taxonomy, schema, issues: list[Issue]) -> No
             )
 
     url = data.get("url")
-    if url is not None:
-        parts = urlsplit(url)
-        if parts.username is not None or parts.password is not None:
-            issues.append(Issue(file=path, message="url must not contain credentials"))
+    if isinstance(url, str):
+        try:
+            parts = urlsplit(url)
+        except ValueError:
+            issues.append(Issue(file=path, message=f"url is not a valid URL: {url!r}"))
+        else:
+            if parts.username is not None or parts.password is not None:
+                issues.append(
+                    Issue(file=path, message="url must not contain credentials")
+                )
 
     entry_path = data.get("path")
-    if entry_path is not None:
+    if isinstance(entry_path, str):
         if os.path.isabs(entry_path) or ".." in Path(entry_path).parts:
             issues.append(
                 Issue(
@@ -115,10 +135,11 @@ def _check_entry(entry, path: Path, taxonomy, schema, issues: list[Issue]) -> No
 def _check_taxonomy(root: Path, issues: list[Issue]) -> Any:
     """Load the taxonomy and check its semantics. Returns the Taxonomy or None."""
     path = root / "taxonomy.yml"
+    rel = Path("taxonomy.yml")
     try:
         taxonomy = load_taxonomy(path)
     except RegistryError as exc:
-        issues.append(Issue(file=path, message=str(exc)))
+        issues.append(Issue(file=rel, message=str(exc)))
         return None
 
     for group in taxonomy.groups:
@@ -126,7 +147,7 @@ def _check_taxonomy(root: Path, issues: list[Issue]) -> Any:
             if tag not in taxonomy.tags:
                 issues.append(
                     Issue(
-                        file=path,
+                        file=rel,
                         message=f"group {group.name!r} names unknown tag {tag!r}",
                     )
                 )
@@ -135,14 +156,14 @@ def _check_taxonomy(root: Path, issues: list[Issue]) -> Any:
         if tag.deprecated and tag.replaced_by is None:
             issues.append(
                 Issue(
-                    file=path,
+                    file=rel,
                     message=f"deprecated tag {name!r} has no replaced_by",
                 )
             )
         if tag.replaced_by is not None and tag.replaced_by not in taxonomy.tags:
             issues.append(
                 Issue(
-                    file=path,
+                    file=rel,
                     message=(
                         f"replaced_by of {name!r} names unknown tag "
                         f"{tag.replaced_by!r}"
@@ -159,7 +180,7 @@ def _check_taxonomy(root: Path, issues: list[Issue]) -> Any:
             if current in seen:
                 issues.append(
                     Issue(
-                        file=path,
+                        file=rel,
                         message=f"replaced_by cycle involving tag {current!r}",
                     )
                 )
@@ -181,21 +202,31 @@ def validate(root: Path, in_actions: bool = False) -> int:
 
     template_dir = root / "templates"
     schema_path = root / "schema" / "template.schema.json"
+    schema_rel = Path("schema") / "template.schema.json"
 
     try:
         schema = load_schema(schema_path)
     except RegistryError as exc:
-        issues.append(Issue(file=schema_path, message=str(exc)))
+        issues.append(Issue(file=schema_rel, message=str(exc)))
         schema = None
 
     if template_dir.exists():
         for path in sorted(template_dir.iterdir()):
-            if not path.is_file():
+            rel = path.relative_to(root)
+            if path.is_symlink():
+                issues.append(
+                    Issue(file=rel, message="symlinks are not allowed in templates/")
+                )
+                continue
+            if path.is_dir():
+                issues.append(
+                    Issue(file=rel, message="subfolders are not allowed in templates/")
+                )
                 continue
             if path.suffix != ".yml":
                 issues.append(
                     Issue(
-                        file=path,
+                        file=rel,
                         message="templates/ files must use the .yml extension",
                     )
                 )
@@ -203,10 +234,10 @@ def validate(root: Path, in_actions: bool = False) -> int:
             try:
                 entry = load_entry(path, schema)
             except RegistryError as exc:
-                issues.append(Issue(file=path, message=str(exc)))
+                issues.append(Issue(file=rel, message=str(exc)))
                 continue
             if taxonomy is not None and schema is not None:
-                _check_entry(entry, path, taxonomy, schema, issues)
+                _check_entry(entry, rel, taxonomy, schema, issues)
 
     for issue in issues:
         _print_issue(issue, in_actions)
