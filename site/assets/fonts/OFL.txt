@@ -1,5 +1,7 @@
-Fonts served by the SpecsFirst gallery (Latin subsets, WOFF2), from the npm
-packages @fontsource/inter 5.3.0 and @fontsource/jetbrains-mono 5.3.0.
+Fonts served by the SpecsFirst gallery (WOFF2): Inter as Latin subsets from the
+npm package @fontsource/inter 5.3.0, and JetBrains Mono as the full fonts of its
+release v2.304 (JetBrainsMono-Regular.woff2 and JetBrainsMono-Medium.woff2,
+renamed), which include the box-drawing glyphs of the file trees.
 
 Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)
   inter-latin-400-normal.woff2, inter-latin-500-normal.woff2,
@@ -7,7 +9,7 @@ Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)
 
 Copyright 2020 The JetBrains Mono Project Authors
 (https://github.com/JetBrains/JetBrainsMono)
-  jetbrains-mono-latin-400-normal.woff2, jetbrains-mono-latin-500-normal.woff2
+  jetbrains-mono-400.woff2, jetbrains-mono-500.woff2
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

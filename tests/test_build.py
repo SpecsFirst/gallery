@@ -260,8 +260,8 @@ def test_fonts_and_their_license_are_copied(repo, tmp_path):
         "inter-latin-400-normal.woff2",
         "inter-latin-500-normal.woff2",
         "inter-latin-600-normal.woff2",
-        "jetbrains-mono-latin-400-normal.woff2",
-        "jetbrains-mono-latin-500-normal.woff2",
+        "jetbrains-mono-400.woff2",
+        "jetbrains-mono-500.woff2",
         "OFL.txt",
     }
     shipped = {p.name for p in (out / "assets" / "fonts").iterdir()}
