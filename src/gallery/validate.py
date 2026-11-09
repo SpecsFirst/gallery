@@ -33,6 +33,8 @@ class Issue:
     file: Path
     message: str
     level: str = "error"
+    field: str = ""
+    code: str = ""
 
     @property
     def is_error(self) -> bool:
@@ -63,25 +65,59 @@ def _print_issue(issue: Issue, in_actions: bool) -> None:
         )
 
 
+def entry_issues(entry, path: Path, taxonomy, schema) -> list[Issue]:
+    """Every problem of one entry (schema and registry rules), warnings included.
+
+    ``field`` is the entry field an issue is about (``""`` when it concerns the
+    whole entry) and ``code`` a short stable name of the rule, so callers can
+    word the problem without reusing ``message``, which quotes entry values.
+    """
+    issues: list[Issue] = []
+    _check_entry(entry, path, taxonomy, schema, issues)
+    return issues
+
+
 def _check_entry(entry, path: Path, taxonomy, schema, issues: list[Issue]) -> None:
     data = entry.fields
 
     validator = Draft202012Validator(schema)
     for error in sorted(validator.iter_errors(data), key=str):
         field = "/".join(str(p) for p in error.absolute_path) or "<root>"
-        issues.append(Issue(file=path, message=f"schema: {field}: {error.message}"))
+        top = str(error.absolute_path[0]) if error.absolute_path else ""
+        if error.validator == "required":
+            # one error per missing property; its name is only in the message
+            for name in error.validator_value:
+                if error.message == f"{name!r} is a required property":
+                    top = str(name)
+        issues.append(
+            Issue(
+                file=path,
+                message=f"schema: {field}: {error.message}",
+                field=top,
+                code=f"schema:{error.validator}",
+            )
+        )
 
     if not ID_RE.match(entry.id):
         issues.append(
             Issue(
                 file=path,
                 message=f"id {entry.id!r} does not match ^[a-z0-9]+(-[a-z0-9]+)*$",
+                field="id",
+                code="id",
             )
         )
 
     kind = data.get("kind")
     if isinstance(kind, str) and kind not in taxonomy.kinds:
-        issues.append(Issue(file=path, message=f"kind {kind!r} is not in the taxonomy"))
+        issues.append(
+            Issue(
+                file=path,
+                message=f"kind {kind!r} is not in the taxonomy",
+                field="kind",
+                code="kind",
+            )
+        )
 
     tags = data.get("tags")
     if not isinstance(tags, list):
@@ -92,7 +128,12 @@ def _check_entry(entry, path: Path, taxonomy, schema, issues: list[Issue]) -> No
         tax_tag = taxonomy.tags.get(tag)
         if tax_tag is None:
             issues.append(
-                Issue(file=path, message=f"tag {tag!r} is not in the taxonomy")
+                Issue(
+                    file=path,
+                    message=f"tag {tag!r} is not in the taxonomy",
+                    field="tags",
+                    code="tag",
+                )
             )
         elif tax_tag.deprecated:
             replacement = tax_tag.replaced_by
@@ -102,6 +143,8 @@ def _check_entry(entry, path: Path, taxonomy, schema, issues: list[Issue]) -> No
                     file=path,
                     level="warning",
                     message=f"tag {tag!r} is deprecated{suffix}",
+                    field="tags",
+                    code="tag_deprecated",
                 )
             )
 
@@ -110,11 +153,23 @@ def _check_entry(entry, path: Path, taxonomy, schema, issues: list[Issue]) -> No
         try:
             parts = urlsplit(url)
         except ValueError:
-            issues.append(Issue(file=path, message=f"url is not a valid URL: {url!r}"))
+            issues.append(
+                Issue(
+                    file=path,
+                    message=f"url is not a valid URL: {url!r}",
+                    field="url",
+                    code="url",
+                )
+            )
         else:
             if parts.username is not None or parts.password is not None:
                 issues.append(
-                    Issue(file=path, message="url must not contain credentials")
+                    Issue(
+                        file=path,
+                        message="url must not contain credentials",
+                        field="url",
+                        code="url_credentials",
+                    )
                 )
 
     entry_path = data.get("path")
@@ -124,12 +179,21 @@ def _check_entry(entry, path: Path, taxonomy, schema, issues: list[Issue]) -> No
                 Issue(
                     file=path,
                     message="path must be relative and must not contain '..'",
+                    field="path",
+                    code="path",
                 )
             )
 
     ref = data.get("ref")
     if isinstance(ref, str) and ref.startswith("-"):
-        issues.append(Issue(file=path, message="ref must not start with '-'"))
+        issues.append(
+            Issue(
+                file=path,
+                message="ref must not start with '-'",
+                field="ref",
+                code="ref",
+            )
+        )
 
 
 def _check_taxonomy(root: Path, issues: list[Issue]) -> Any:

@@ -324,3 +324,47 @@ def test_annotation_file_property_escapes_colon_and_comma(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "file=templates/a%2Cline%3A9.yml" in out
     assert "file=templates/a,line:9.yml" not in out
+
+
+def _load(root, entry_path):
+    from gallery.registry import load_entry, load_schema, load_taxonomy
+
+    schema = load_schema(root / "schema" / "template.schema.json")
+    taxonomy = load_taxonomy(root / "taxonomy.yml")
+    return load_entry(entry_path, schema), taxonomy, schema
+
+
+def test_entry_issues_lists_every_problem_with_field_and_code(tmp_path):
+    from gallery.validate import entry_issues
+
+    root = write_registry(tmp_path)
+    path = write_entry(
+        root,
+        "bad",
+        {"name": "x", "url": "http://a", "description": "short", "kind": "nope"},
+    )
+    entry, taxonomy, schema = _load(root, path)
+    issues = entry_issues(entry, Path("bad.yml"), taxonomy, schema)
+    pairs = {(i.field, i.code) for i in issues}
+    assert {
+        ("name", "schema:minLength"),
+        ("url", "schema:pattern"),
+        ("description", "schema:minLength"),
+        ("kind", "kind"),
+    } <= pairs
+    assert all(i.message for i in issues)
+    # the command line still reports the same entry, and fails
+    assert validate(root) == 1
+
+
+def test_entry_issues_names_the_missing_required_field(tmp_path):
+    from gallery.validate import entry_issues
+
+    root = write_registry(tmp_path)
+    path = write_entry(root, "bad", {"name": "Some name", "url": "https://a.b/c"})
+    entry, taxonomy, schema = _load(root, path)
+    issues = entry_issues(entry, Path("bad.yml"), taxonomy, schema)
+    assert {i.field for i in issues if i.code == "schema:required"} == {
+        "description",
+        "kind",
+    }

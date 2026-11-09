@@ -1,0 +1,48 @@
+name: Submit a template
+description: Add a spec template to the gallery.
+title: "Template: "
+labels: [submission]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Fill in these four fields. A bot checks your repository and answers on this issue
+        with the entry it would add and a link that proposes the file from your fork.
+
+        The license, the last update, Copier support and the file tree are detected
+        from your repository: do not type them. A 👍 on the template's Discussion is a
+        star.
+  - type: input
+    id: url
+    attributes:
+      label: Repository URL
+      description: Public https URL of the git repository, on GitHub, GitLab or any public git forge.
+      placeholder: https://github.com/you/your-template
+    validations:
+      required: true
+  - type: input
+    id: name
+    attributes:
+      label: Name
+      description: 3 to 60 characters. It gives the template's id, shown in its URL.
+      placeholder: Teaching lab notebook
+    validations:
+      required: true
+  - type: input
+    id: description
+    attributes:
+      label: One-line description
+      description: 20 to 200 characters. Who it is for, and what is different.
+      placeholder: A specs repo for a lab course, where students and agents share one task board.
+    validations:
+      required: true
+  - type: input
+    id: tags
+    attributes:
+      label: Tags
+      description: >-
+        Comma-separated: exactly one kind and up to 4 tags, all from
+        [taxonomy.yml](https://github.com/SpecsFirst/gallery/blob/main/taxonomy.yml).
+      placeholder: research, teaching, bench
+    validations:
+      required: true

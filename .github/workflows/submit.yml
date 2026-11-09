@@ -1,0 +1,114 @@
+name: Check a template submission
+
+# The bot never writes to the repository (ADR-008): `check` reads the issue and the
+# registry of `main`, `comment` posts one comment. Everything in the issue is hostile,
+# so it travels in files only, never through an expression inside a script.
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions: {}
+
+concurrency:
+  group: submit-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    if: contains(github.event.issue.labels.*.name, 'submission')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      found: ${{ steps.check.outputs.found }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Check the submission
+        id: check
+        run: |
+          out="$RUNNER_TEMP/submission"
+          uv run python -m gallery.submit check \
+            --event "$GITHUB_EVENT_PATH" --root . --out "$out"
+          if [ -f "$out/submission.json" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload the result
+        if: steps.check.outputs.found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: submission
+          path: ${{ runner.temp }}/submission/submission.json
+          retention-days: 1
+          if-no-files-found: error
+
+  comment:
+    needs: check
+    if: >-
+      contains(github.event.issue.labels.*.name, 'submission')
+      && needs.check.outputs.found == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Download the result
+        uses: actions/download-artifact@v4
+        with:
+          name: submission
+          path: ${{ runner.temp }}/submission
+
+      - name: Prepare the comment
+        id: prepare
+        run: |
+          dir="$RUNNER_TEMP/submission"
+          number=$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")
+          case "$number" in
+            '' | *[!0-9]*) echo "The issue number is not valid." >&2; exit 1 ;;
+          esac
+          jq -e '(.comment | type == "string")
+            and (.comment | startswith("<!-- gallery-submission -->"))
+            and (.comment | length <= 60000)' "$dir/submission.json" > /dev/null
+          jq -r '.comment' "$dir/submission.json" > "$dir/comment.md"
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+
+      - name: Post or update the comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ steps.prepare.outputs.number }}
+        run: |
+          file="$RUNNER_TEMP/submission/comment.md"
+          existing=$(gh api --paginate \
+            "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER/comments" \
+            --jq '.[] | select(.user.login == "github-actions[bot]"
+              and (.body | startswith("<!-- gallery-submission -->"))) | .id' \
+            | tail -n 1)
+          case "$existing" in
+            *[!0-9]*) echo "Unexpected comment id." >&2; exit 1 ;;
+          esac
+          if [ -n "$existing" ]; then
+            gh api --method PATCH \
+              "repos/$GITHUB_REPOSITORY/issues/comments/$existing" \
+              --field body=@"$file" > /dev/null
+          else
+            gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+              --body-file "$file"
+          fi

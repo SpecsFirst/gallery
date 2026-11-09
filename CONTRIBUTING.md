@@ -1,20 +1,54 @@
 # Contributing a template
 
-You can add a template to the gallery with one pull request that adds one small file.
+The easiest way to add a template is the
+[submission form](https://github.com/SpecsFirst/gallery/issues/new?template=submit-template.yml).
+You need a GitHub account and a public git repository (on GitHub, GitLab or any other
+forge, over https).
 
-## Steps
+## Submit with the form
 
-1. Fork this repository and create `templates/<id>.yml`.
-2. Fill it in (example below) and run the check on your machine (see "Check it locally").
+1. Open the form and fill in four fields: the repository URL, a name (3 to 60 characters;
+   it gives the template's id, shown in its URL), a one-line description (20 to 200
+   characters: who it is for, what is different) and the tags: exactly one kind and up to
+   4 tags from [`taxonomy.yml`](taxonomy.yml), separated by commas.
+2. A bot answers on your issue. It checks your repository, then
+   shows the entry it would add, or lists what to fix. Edit your issue to fix it: the
+   check runs again and the bot updates its comment.
+3. When the entry is valid, the comment has a link. It opens GitHub's "new file" page,
+   with `templates/<id>.yml` already filled in. Click **Commit changes…**, then **Propose
+   changes**: GitHub forks the repository for you and opens a pull request. Keep (or add)
+   `Closes #N` in the pull request description, where `N` is your issue number.
+4. The same checks run on your pull request, and a maintainer merges it. The bot never
+   writes to the repository: your pull request is the only change.
+5. The site is rebuilt after the merge, then every six hours. The template gets its own
+   Discussion, and a star is a 👍 on it (with a GitHub account). Stars are refreshed with
+   each rebuild.
+
+The `<id>` is the name in lowercase, with letters and digits separated by single hyphens
+(`Research thesis` gives `research-thesis`). Pick the name once and keep it: the id is in
+the template's URL and in the title of its Discussion.
+
+## What the gallery detects, so you do not declare it
+
+- the license
+- whether a `copier.yml` file exists
+- the date of the last update
+- the file tree
+
+Put a `LICENSE` file at the root of the template (or of its `path`). The gallery only reads
+git objects: it never runs your code or checks it out, and it shows no preview of your
+files. If the repository cannot be fetched, the template's page still shows the fields of
+your entry.
+
+## Without the form: a pull request
+
+You can also open a pull request that adds `templates/<id>.yml`:
+
+1. Fork this repository and create `templates/<id>.yml` (example below).
+2. Run the check on your machine (see "Check it locally").
 3. Open a pull request. The same check runs automatically, and a maintainer merges it.
 
-The `<id>` is the file name without `.yml`. It uses lowercase letters and digits, with
-single hyphens between them (`research-thesis`, not `Research_Thesis`). It ends up in the
-template's URL and in the title of its Discussion, so pick it once and keep it.
-
-## Example
-
-Save this as `templates/teaching-lab.yml`:
+Example, `templates/teaching-lab.yml`:
 
 ```yaml
 name: Teaching lab notebook
@@ -23,8 +57,6 @@ description: A specs repo for a lab course, where students and agents share one 
 kind: research
 tags: [teaching, bench]
 ```
-
-## Fields
 
 | Field         | Required | Limits                                                          |
 | ------------- | -------- | --------------------------------------------------------------- |
@@ -37,31 +69,14 @@ tags: [teaching, bench]
 | `ref`         | no       | Tag or commit to show (it cannot start with `-`). Default: the default branch. |
 | `language`    | no       | Two lowercase letters, such as `fr`. Default: `en`.             |
 
-Any other field is refused. Kinds and tags come from [`taxonomy.yml`](taxonomy.yml), so look
-there for the current lists. If you need a new tag, open a pull request on `taxonomy.yml`
-that says which templates need it. Tags are never deleted or renamed: an old one is marked
-deprecated and points to its replacement, so existing entries keep working.
+Any other field is refused (the form fills only the first five).
 
-## What your template must be
+## Kinds and tags
 
-A public git repository, reachable over https, on any forge (GitHub, GitLab, Codeberg...).
-The gallery only reads its git objects. It never runs your code or checks it out. If the
-repository cannot be fetched, the template's page still shows the fields of your entry.
-
-## What the gallery detects, so you do not declare it
-
-- the license, the `copier.yml` file, and the tool-specific files (`CLAUDE.md`,
-  `AGENTS.md`, `.opencode/`...)
-- the date of the last update and the file tree
-- the preview, taken from `main.md`
-
-Put a `main.md` and a license file (`LICENSE`) at the root of the template (or of its `path`):
-they fill the preview and the license of its page.
-
-## After the merge
-
-The site is rebuilt on each push to `main` and every six hours. Votes are 👍 reactions on the
-template's page, through giscus (you sign in with GitHub). They refresh with each rebuild.
+They come from [`taxonomy.yml`](taxonomy.yml). If you need a new tag, open a pull request on
+`taxonomy.yml` that says which templates need it. Tags are never deleted or renamed: an old
+one is marked deprecated and points to its replacement, so existing entries keep working
+(the form replaces a deprecated tag by its replacement).
 
 ## Check it locally
 
