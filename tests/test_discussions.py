@@ -102,8 +102,7 @@ def test_body_text() -> None:
     )
     assert discussion_body(entry, "https://specsfirst.github.io/gallery/") == (
         "Star **Thesis kit** by reacting with 👍 to this post. One GitHub account, "
-        "one star; the\n"
-        "gallery counts them every few hours.\n"
+        "one star; the gallery counts them every few hours.\n"
         "\n"
         "> By @&#8203;someone and @&#8203;other-team.\n"
         "> Second line.\n"

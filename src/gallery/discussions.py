@@ -64,7 +64,7 @@ def discussion_body(entry: Entry, base_url: str) -> str:
     )
     return (
         f"Star **{_no_mention(entry.name)}** by reacting with 👍 to this post. "
-        "One GitHub account, one star; the\n"
+        "One GitHub account, one star; the "
         "gallery counts them every few hours.\n"
         "\n"
         f"{quote}\n"
