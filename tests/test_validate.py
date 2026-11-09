@@ -121,7 +121,13 @@ def test_command_with_control_character_fails(tmp_path, capsys):
     write_entry(root, "bad", {**VALID_ENTRY, "command": "make\tscaffold"})
     assert validate(root) == 1
     out = capsys.readouterr().out
-    assert "control character" in out
+    assert "control or bidi characters" in out
+
+
+def test_command_with_bidi_override_fails(tmp_path):
+    root = write_registry(tmp_path)
+    write_entry(root, "bad", {**VALID_ENTRY, "command": "copier copy \u202eevil"})
+    assert validate(root) == 1
 
 
 def test_command_with_newline_fails_schema(tmp_path):
