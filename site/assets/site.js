@@ -1,166 +1,77 @@
-/* Gallery behaviour: filters, sort, URL state and copy buttons. Plain JS.
-   Page data is only ever read as attributes and written with textContent. */
+/* Gallery behaviour: the tag filter and the copy button. Plain JS.
+   Page data is only ever read as attributes and written with textContent.
+   Without this script every page is complete: all cards are visible. */
 (function () {
   "use strict";
 
-  function all(root, selector) {
-    return Array.prototype.slice.call(root.querySelectorAll(selector));
+  function all(selector) {
+    return Array.prototype.slice.call(document.querySelectorAll(selector));
   }
 
-  function compareText(a, b) {
-    return a < b ? -1 : a > b ? 1 : 0;
-  }
-
-  function initGallery(list) {
-    var filters = document.getElementById("filters");
-    var sortSelect = document.getElementById("sort");
+  function initFilter() {
+    var buttons = all("#filters button");
     var count = document.getElementById("count");
-    var empty = document.getElementById("empty");
-    var clearButtons = [document.getElementById("clear"), document.getElementById("empty-clear")];
-    var kindInputs = all(filters, 'input[name="kind"]');
-    var tagInputs = all(filters, 'input[name="tag"]');
-
-    var items = all(list, ".card").map(function (el) {
+    var cards = all(".card[data-tags]").map(function (el) {
       var tags = [];
       try {
         tags = JSON.parse(el.getAttribute("data-tags")) || [];
       } catch (e) {
         tags = [];
       }
-      var updated = el.getAttribute("data-updated");
-      return {
-        el: el,
-        id: el.getAttribute("data-id") || "",
-        name: el.getAttribute("data-name") || "",
-        kind: el.getAttribute("data-kind") || "",
-        tags: tags,
-        votes: Number(el.getAttribute("data-votes")) || 0,
-        updated: updated === "" || updated === null ? null : Number(updated)
-      };
+      return { el: el, tags: tags };
     });
 
-    function readUrl() {
-      var params = new URLSearchParams(window.location.search);
-      var kind = params.get("kind") || "";
-      var tags = params.getAll("tag");
-      kindInputs.forEach(function (input) {
-        input.checked = input.value === kind;
-      });
-      if (!kindInputs.some(function (input) { return input.checked; })) {
-        kindInputs[0].checked = true;
-      }
-      tagInputs.forEach(function (input) {
-        input.checked = tags.indexOf(input.value) !== -1;
-      });
-      sortSelect.value = params.get("sort") === "updated" ? "updated" : "votes";
-    }
-
-    function readControls() {
-      var kind = "";
-      kindInputs.forEach(function (input) {
-        if (input.checked) { kind = input.value; }
-      });
-      return {
-        kind: kind,
-        tags: tagInputs.filter(function (input) { return input.checked; })
-          .map(function (input) { return input.value; }),
-        sort: sortSelect.value === "updated" ? "updated" : "votes"
-      };
-    }
-
-    function writeUrl(state) {
-      var params = new URLSearchParams();
-      if (state.kind) { params.set("kind", state.kind); }
-      state.tags.forEach(function (tag) { params.append("tag", tag); });
-      if (state.sort !== "votes") { params.set("sort", state.sort); }
-      var query = params.toString();
-      window.history.replaceState(
-        null, "",
-        window.location.pathname + (query ? "?" + query : "") + window.location.hash
-      );
-    }
-
-    function comparator(sort) {
-      return function (a, b) {
-        if (sort === "updated") {
-          if (a.updated !== b.updated) {
-            if (a.updated === null) { return 1; }
-            if (b.updated === null) { return -1; }
-            return b.updated - a.updated;
-          }
-        } else if (a.votes !== b.votes) {
-          return b.votes - a.votes;
-        }
-        return compareText(a.name, b.name) || compareText(a.id, b.id);
-      };
-    }
-
-    function matches(item, state) {
-      return (!state.kind || item.kind === state.kind) &&
-        state.tags.every(function (tag) { return item.tags.indexOf(tag) !== -1; });
-    }
-
-    function update() {
-      var state = readControls();
+    function select(tag) {
       var shown = 0;
-      items.slice().sort(comparator(state.sort)).forEach(function (item) {
-        list.appendChild(item.el);
-        var visible = matches(item, state);
-        item.el.hidden = !visible;
-        if (visible) { shown += 1; }
+      buttons.forEach(function (button) {
+        var on = (button.getAttribute("data-tag") || "") === tag;
+        button.setAttribute("aria-pressed", on ? "true" : "false");
       });
-      count.textContent = "Showing " + shown + " of " + items.length +
-        (items.length === 1 ? " template" : " templates");
-      count.hidden = false;
-      empty.hidden = shown !== 0;
-      clearButtons[0].hidden = !state.kind && state.tags.length === 0;
-      writeUrl(state);
+      cards.forEach(function (card) {
+        var show = tag === "" || card.tags.indexOf(tag) !== -1;
+        card.el.hidden = !show;
+        if (show) {
+          shown += 1;
+        }
+      });
+      if (count) {
+        count.textContent =
+          shown + (shown === 1 ? " template" : " templates") + ", sorted by stars";
+      }
     }
 
-    function clear() {
-      kindInputs[0].checked = true;
-      tagInputs.forEach(function (input) { input.checked = false; });
-      update();
-    }
-
-    filters.addEventListener("change", update);
-    clearButtons.forEach(function (button) {
-      if (button) { button.addEventListener("click", clear); }
-    });
-
-    readUrl();
-    filters.hidden = false;
-    // On a narrow screen the templates come first, unless a shared link set filters.
-    var query = new URLSearchParams(window.location.search);
-    if (window.matchMedia("(max-width: 40rem)").matches && !query.has("kind") && !query.has("tag")) {
-      document.getElementById("filter-panel").open = false;
-    }
-    update();
-  }
-
-  function initCopyButtons() {
-    if (!navigator.clipboard) { return; }
-    all(document, ".command").forEach(function (block) {
-      var code = block.querySelector("code");
-      if (!code) { return; }
-      var button = document.createElement("button");
-      button.type = "button";
-      button.className = "copy";
-      button.textContent = "Copy command";
-      button.setAttribute("aria-live", "polite");
+    buttons.forEach(function (button) {
+      button.hidden = false;
       button.addEventListener("click", function () {
-        navigator.clipboard.writeText(code.textContent).then(function () {
-          button.textContent = "Copied";
-        }, function () {
-          button.textContent = "Copy failed";
-        });
-        window.setTimeout(function () { button.textContent = "Copy command"; }, 2000);
+        select(button.getAttribute("data-tag") || "");
       });
-      block.appendChild(button);
     });
   }
 
-  var list = document.getElementById("cards");
-  if (list && document.getElementById("filters")) { initGallery(list); }
-  initCopyButtons();
+  function initCopy(button) {
+    var line = button.parentNode;
+    var code = line ? line.querySelector("code") : null;
+    var timer = null;
+    if (!code || !navigator.clipboard || !navigator.clipboard.writeText) {
+      return;
+    }
+    button.hidden = false;
+    button.addEventListener("click", function () {
+      navigator.clipboard.writeText(code.textContent).then(function () {
+        button.classList.add("done");
+        button.setAttribute("aria-label", "Copied");
+        window.clearTimeout(timer);
+        timer = window.setTimeout(function () {
+          button.classList.remove("done");
+          button.setAttribute("aria-label", "Copy command");
+        }, 1500);
+      }, function () {});
+    });
+  }
+
+  var group = document.getElementById("filters");
+  if (group) {
+    initFilter();
+  }
+  all(".copy").forEach(initCopy);
 })();

@@ -21,8 +21,7 @@ GENERATED_AT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
 SITE_YML = """\
 title: Test
-tagline: Test
-giscus:
+discussions:
   repo: Owner/the-repo
   repo_id: R_abc
   category: Templates

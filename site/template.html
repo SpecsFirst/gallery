@@ -1,102 +1,30 @@
 {% extends "base.html" %}
+{% import "_parts.html" as parts %}
 {% block title %}{{ v.name }} - {{ site.title }}{% endblock %}
+{% block wrap %}page{% endblock %}
+{% block logo %}{{ parts.logo(28) }}{% endblock %}
+{% block nav %}
+    <a class="muted" href="{{ root }}">&larr; All templates</a>
+{% endblock %}
 {% block content %}
-<nav aria-label="Breadcrumb" class="crumbs"><a href="{{ root }}">&larr; All templates</a></nav>
-
-<article class="template">
-  <header>
-    <h1>{{ v.name }}</h1>
-    <p class="lead">{{ v.description }}</p>
-    <ul class="chips" aria-label="Kind and tags">
-      <li class="chip kind">{{ v.kind }}</li>
-      {% for tag in v.tags %}
-      <li class="chip">{{ tag }}</li>
-      {% endfor %}
-    </ul>
-    <p class="votes"><span aria-hidden="true">&#128077;</span> {{ v.votes }} {{ 'vote' if v.votes == 1 else 'votes' }}</p>
-  </header>
-
-  {% if v.notice %}
-  <p class="notice" role="note">{{ v.notice }}</p>
-  {% endif %}
-
-  <section aria-labelledby="repo-title">
-    <h2 id="repo-title">Source</h2>
-    <dl class="details">
-      <dt>Repository</dt>
-      <dd>{% if v.repo_link %}<a href="{{ v.repo_link }}" rel="nofollow noopener noreferrer">{{ v.url }}</a>{% else %}{{ v.url }}{% endif %}</dd>
-      {% if v.path %}<dt>Path</dt><dd><code>{{ v.path }}</code></dd>{% endif %}
-      {% if v.ref %}<dt>Ref</dt><dd><code>{{ v.ref }}</code></dd>{% endif %}
-      <dt>Language</dt>
-      <dd>{{ v.language }}</dd>
-    </dl>
-  </section>
-
+<article class="card">
+  <div class="head">
+    <div>
+      <h1>{{ v.name }}</h1>
+      <p class="desc">{{ v.description }}</p>
+    </div>
+    {{ parts.star(v, true) }}
+  </div>
+  {{ parts.meta(v) }}
+  {{ parts.tree(v) }}
   {% if v.command %}
-  <section aria-labelledby="use-title">
-    <h2 id="use-title">Use it with Copier</h2>
-    <p>Replace <code>&lt;name&gt;</code> with the name of your new project.</p>
-    <div class="command"><pre tabindex="0"><code>{{ v.command }}</code></pre></div>
-  </section>
+  <div class="cmd">
+    <div class="line" tabindex="0" role="region" aria-label="Command"><span class="p" aria-hidden="true">$ </span><code>{{ v.command }}</code></div>
+    <button type="button" class="copy" aria-label="Copy command" title="Copy" hidden>
+      <svg class="ic" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M10.5 3.5 V3 A1.5 1.5 0 0 0 9 1.5 H4 A1.5 1.5 0 0 0 2.5 3 V8 A1.5 1.5 0 0 0 4 9.5 H4.5" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
+      <svg class="ok" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5 L6.5 12 L13 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
   {% endif %}
-
-  {% if v.state == 'ok' %}
-  <section aria-labelledby="preview-title">
-    <h2 id="preview-title">Preview of main.md</h2>
-    {% if v.preview %}
-    <div class="preview" lang="{{ v.language }}">{{ v.preview }}</div>
-    {% else %}
-    <p>This template has no main.md to preview.</p>
-    {% endif %}
-  </section>
-
-  <section aria-labelledby="detected-title">
-    <h2 id="detected-title">Detected information</h2>
-    <dl class="details">
-      <dt>License</dt>
-      <dd>{{ v.license }}</dd>
-      <dt>Copier</dt>
-      <dd>{{ 'Yes, it has a copier.yml' if v.copier else 'No copier.yml found' }}</dd>
-      <dt>Tools</dt>
-      <dd>{% if v.tools %}{{ v.tools|join(', ') }}{% else %}None detected{% endif %}</dd>
-      {% if v.updated_date %}
-      <dt>Last update</dt>
-      <dd><time datetime="{{ v.updated_iso }}">{{ v.updated_date }}</time></dd>
-      {% endif %}
-      {% if v.commit %}
-      <dt>Commit</dt>
-      <dd><code>{{ v.commit }}</code></dd>
-      {% endif %}
-    </dl>
-    {% if v.tree %}
-    <h3>Files</h3>
-    <pre class="tree" tabindex="0"><code>{{ v.tree|join('\n') }}</code></pre>
-    {% if v.tree_truncated %}<p class="hint">The file list is truncated: only the first entries are shown.</p>{% endif %}
-    {% endif %}
-  </section>
-  {% endif %}
-
-  <section id="discussion" aria-labelledby="discussion-title">
-    <h2 id="discussion-title">Votes and comments</h2>
-    <p>To vote, react with &#128077; on the first post of the thread below. Voting and commenting need a GitHub account.</p>
-    <noscript><p class="hint">The discussion needs JavaScript.</p></noscript>
-    <div class="giscus"></div>
-    <script src="https://giscus.app/client.js"
-      data-repo="{{ site.giscus.repo }}"
-      data-repo-id="{{ site.giscus.repo_id }}"
-      data-category="{{ site.giscus.category }}"
-      data-category-id="{{ site.giscus.category_id }}"
-      data-mapping="specific"
-      data-term="{{ v.id }}"
-      data-strict="1"
-      data-reactions-enabled="1"
-      data-emit-metadata="0"
-      data-input-position="top"
-      data-theme="preferred_color_scheme"
-      data-lang="en"
-      data-loading="lazy"
-      crossorigin="anonymous"
-      async></script>
-  </section>
 </article>
 {% endblock %}

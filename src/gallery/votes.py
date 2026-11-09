@@ -2,7 +2,7 @@
 
 ``python -m gallery.votes [--root DIR] --output FILE`` writes ``votes.json`` (see
 ``architecture.md``, ADR-004 and "Data / interfaces"): for each registry id that has a
-Discussion in the giscus category, the 👍 reaction count and the Discussion url.
+Discussion in the Templates category, the 👍 reaction count and the Discussion url.
 
 Security model, in short:
 
@@ -97,7 +97,7 @@ def post_graphql(body: bytes, token: str, url: str = API_URL) -> tuple[int, byte
 def split_repo(repo: str) -> tuple[str, str]:
     owner, sep, name = repo.partition("/")
     if not sep or not owner or not name or "/" in name:
-        raise VotesError("site.yml: giscus.repo must be 'owner/name'")
+        raise VotesError("site.yml: discussions.repo must be 'owner/name'")
     return owner, name
 
 
@@ -264,7 +264,7 @@ def main(argv: Sequence[str] | None = None, transport: Transport = post_graphql)
     try:
         registry = load_registry(args.root)
         site = load_site_config(site_config_path(args.root))
-        owner, name = split_repo(site.giscus["repo"])
+        owner, name = split_repo(site.discussions["repo"])
     except VotesError as exc:
         print(f"votes: {exc}", file=sys.stderr)
         return 2
@@ -276,7 +276,7 @@ def main(argv: Sequence[str] | None = None, transport: Transport = post_graphql)
         templates = fetch_votes(
             owner,
             name,
-            site.giscus["category_id"],
+            site.discussions["category_id"],
             [entry.id for entry in registry.entries],
             token,
             transport,

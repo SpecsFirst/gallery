@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://giscus.app; style-src 'self' https://giscus.app; frame-src https://giscus.app; img-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>{% block title %}{{ site.title }}{% endblock %}</title>
@@ -11,20 +11,16 @@
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-{% block header %}
-<header class="site-header">
-  <a class="brand" href="{{ root or './' }}">{{ site.title }}</a>
+<div class="wrap {% block wrap %}{% endblock %}">
+<header>
+  <a class="brand" href="{{ root or './' }}">{% block logo %}{% endblock %}<span>SpecsFirst</span></a>
+  <nav>
+{% block nav %}{% endblock %}
+  </nav>
 </header>
-{% endblock %}
 <main id="main">
 {% block content %}{% endblock %}
 </main>
-<footer class="site-footer">
-  <p>
-    <a href="{{ site.contributing_url }}" rel="noopener noreferrer">Submit a template</a>
-    &middot;
-    <a href="{{ site.repo_url }}" rel="noopener noreferrer">Source on GitHub</a>
-  </p>
-</footer>
+</div>
 </body>
 </html>
