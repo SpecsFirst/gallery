@@ -54,7 +54,7 @@ the template's URL and in the title of its Discussion.
 
 ## The placement and the install command
 
-"Where the specs live?" chooses the template's `placement`:
+"Where do the specs live?" sets the template's `placement`:
 
 - **In their own repo** (`standalone`): the specs are a separate repository from the code
   they drive.
@@ -68,7 +68,8 @@ builds one from a `copier.yml`.
 
 [Copier](https://copier.readthedocs.io/) is the recommended way to ship a template: a
 `copier.yml` at the root of the repository gives visitors the one-command install
-(`copier copy <url> my-project`). The gallery detects the `copier.yml` and builds the
+(`copier copy <url> my-project`, or `copier copy <url> .` for specs that live in the code
+repo). The gallery detects the `copier.yml` and builds the
 command for you.
 
 ## What the gallery detects, so you do not declare it
@@ -100,7 +101,6 @@ description: A specs repo for a lab course, where students and agents share one 
 kind: research
 tags: [teaching, bench]
 placement: standalone
-command: copier copy https://github.com/example/template-teaching-lab my-project
 ```
 
 | Field         | Required | Limits                                                          |
