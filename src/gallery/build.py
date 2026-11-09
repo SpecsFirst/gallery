@@ -5,10 +5,9 @@ turns the registry, ``detected.json`` and ``votes.json`` into the site: the gall
 page and one page per template.
 
 Everything shown from an entry or from ``detected.json`` comes from strangers
-(ADR-002): Jinja2 autoescape is on for every template, and the only HTML that is not
-escaped is the preview of ``main.md``, produced by a renderer that disables raw HTML,
-keeps only safe links and replaces images by their alt text. A missing data file, or
-an id missing from a data file, means "no data", never an error (ADR-004).
+(ADR-002): Jinja2 autoescape is on for every template and nothing is passed as
+markup. A missing data file, or an id missing from a data file, means "no data",
+never an error (ADR-004).
 """
 
 from __future__ import annotations
@@ -20,7 +19,7 @@ import shlex
 import shutil
 import sys
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -28,11 +27,10 @@ from urllib.parse import urlsplit
 
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
-from markdown_it import MarkdownIt
-from markdown_it.common.utils import escapeHtml
-from markupsafe import Markup
 
+from gallery.detect import MAX_TREE_ENTRIES
 from gallery.registry import Entry, RegistryError, Taxonomy, load_registry
+from gallery.tree import render_tree
 
 # Where the packaged defaults (site/, site.yml) live when --root does not hold them.
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
@@ -40,14 +38,23 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 ID_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 _CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 _SPDX_LIKE = re.compile(r"^[A-Za-z0-9.+-]{1,40}$")
-_COMMIT = re.compile(r"^[0-9a-f]{7,64}$")
-_FRONT_MATTER = re.compile(
-    r"\A﻿?---[ \t]*\r?\n(?:.*?\r?\n)?(?:---|\.\.\.)[ \t]*(?:\r?\n|\Z)",
-    re.DOTALL,
-)
 
 LINK_REL = "nofollow noopener noreferrer"
-SAFE_LINK_SCHEMES = ("http", "https", "mailto")
+TAG_COLORS = 6
+MONTHS = (
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+)
 
 # The closed list of detect.py error codes, in plain words. Anything else, and the
 # raw code itself, is never displayed.
@@ -59,93 +66,12 @@ ERROR_REASONS = {
     "path_not_found": "the requested path was not found in the repository",
     "invalid_entry": "the path or ref of this entry is not usable",
 }
+GENERIC_FAILURE = "the analysis failed"
+PROJECT_NAME = "my-project"
 
 
 class BuildError(Exception):
     """Raised when the site cannot be built (bad configuration or data file)."""
-
-
-# --------------------------------------------------------------------------
-# Preview: markdown-it-py with raw HTML off, safe links only, no images.
-# --------------------------------------------------------------------------
-
-
-def strip_front_matter(text: str) -> str:
-    """Remove a leading YAML front matter block."""
-    return _FRONT_MATTER.sub("", text, count=1)
-
-
-def link_allowed(href: str) -> bool:
-    """True for an absolute http(s) link or a mailto link, false for the rest."""
-    try:
-        parts = urlsplit(href)
-    except ValueError:
-        return False
-    scheme = parts.scheme.lower()
-    if scheme in ("http", "https"):
-        return bool(parts.netloc)
-    if scheme == "mailto":
-        return bool(parts.path)
-    return False
-
-
-def _render_image(self: Any, tokens: Any, idx: int, options: Any, env: Any) -> str:
-    """An image is rendered as its alt text: no request is ever made."""
-    token = tokens[idx]
-    if not token.children:
-        return ""
-    return escapeHtml(self.renderInlineAsText(token.children, options, env))
-
-
-def _open_table(self: Any, tokens: Any, idx: int, options: Any, env: Any) -> str:
-    return '<div class="table-scroll">' + self.renderToken(tokens, idx, options, env)
-
-
-def _close_table(self: Any, tokens: Any, idx: int, options: Any, env: Any) -> str:
-    return self.renderToken(tokens, idx, options, env) + "</div>"
-
-
-def _sanitize_tokens(state: Any) -> None:
-    """Core rule: restrict links, drop inline styles and shift heading levels."""
-    for block in state.tokens:
-        if block.type in ("heading_open", "heading_close"):
-            # The page owns h1 and h2: the preview starts at h3.
-            level = int(block.tag[1:])
-            block.tag = f"h{min(level + 2, 6)}"
-        if block.type in ("th_open", "td_open"):
-            block.attrs.pop("style", None)
-        if block.type != "inline" or not block.children:
-            continue
-        dropping = False
-        for token in block.children:
-            if token.type == "link_open":
-                href = token.attrGet("href")
-                if isinstance(href, str) and link_allowed(href):
-                    token.attrs = {"href": href, "rel": LINK_REL}
-                else:
-                    token.hidden = True
-                    dropping = True
-            elif token.type == "link_close" and dropping:
-                token.hidden = True
-                dropping = False
-
-
-def make_preview_renderer() -> MarkdownIt:
-    """The sanitizing renderer used for every preview."""
-    md = MarkdownIt("commonmark", {"html": False, "linkify": False}).enable("table")
-    # Every link is parsed, so that the sanitizer decides, and a refused one keeps
-    # its text instead of showing its markdown source.
-    md.validateLink = lambda url: True
-    md.add_render_rule("image", _render_image)
-    md.add_render_rule("table_open", _open_table)
-    md.add_render_rule("table_close", _close_table)
-    md.core.ruler.push("gallery_sanitize", _sanitize_tokens)
-    return md
-
-
-def render_preview(md: MarkdownIt, text: str) -> Markup:
-    """Render ``main.md`` to safe HTML (the only value passed as Markup)."""
-    return Markup(md.render(strip_front_matter(text)))
 
 
 # --------------------------------------------------------------------------
@@ -179,8 +105,8 @@ class SiteConfig:
         return f"https://github.com/{self.discussions['repo']}"
 
     @property
-    def contributing_url(self) -> str:
-        return f"{self.repo_url}/blob/main/CONTRIBUTING.md"
+    def submit_url(self) -> str:
+        return f"{self.repo_url}/issues/new?template=submit-template.yml"
 
 
 def load_site_config(path: Path) -> SiteConfig:
@@ -210,6 +136,14 @@ def load_site_config(path: Path) -> SiteConfig:
 # --------------------------------------------------------------------------
 
 
+@dataclass(frozen=True)
+class TagView:
+    """A tag as shown: its name and the index of its color class (``c0``-``c5``)."""
+
+    name: str
+    color: int
+
+
 @dataclass
 class TemplateView:
     """Everything a card or a page shows about one template."""
@@ -217,25 +151,22 @@ class TemplateView:
     id: str
     name: str
     description: str
-    kind: str
-    tags: list[str]
-    language: str
+    tags: list[TagView]
     url: str
     repo_link: str | None
+    source_text: str
     path: str | None
     ref: str | None
-    votes: int = 0
-    state: str = "none"  # "ok", "failed" or "none" (no detected data)
-    notice: str | None = None
-    license: str | None = None
-    copier: bool = False
-    tools: list[str] = field(default_factory=list)
+    votes: int
+    star_url: str
+    license_text: str = "Unknown"
+    license_class: str = "muted"  # "", "warn" or "muted"
     updated: datetime | None = None
-    commit: str | None = None
-    tree: list[str] = field(default_factory=list)
+    tree_text: str | None = None
+    tree_summary: str = ""
     tree_truncated: bool = False
+    tree_unavailable: str = "File tree unavailable: not analysed yet."
     command: str | None = None
-    preview: Markup | None = None
 
     @property
     def sort_name(self) -> str:
@@ -247,11 +178,27 @@ class TemplateView:
 
     @property
     def updated_iso(self) -> str | None:
-        return None if self.updated is None else self.updated.isoformat()
+        return None if self.updated is None else self.updated.date().isoformat()
 
     @property
-    def updated_date(self) -> str | None:
-        return None if self.updated is None else self.updated.date().isoformat()
+    def updated_text(self) -> str | None:
+        if self.updated is None:
+            return None
+        date = self.updated.date()
+        return f"{MONTHS[date.month - 1]} {date.day}, {date.year}"
+
+    @property
+    def tag_names(self) -> list[str]:
+        return [tag.name for tag in self.tags]
+
+    @property
+    def tree_note(self) -> str:
+        return f"Only the first {MAX_TREE_ENTRIES} entries are listed."
+
+    @property
+    def star_label(self) -> str:
+        noun = "star" if self.votes == 1 else "stars"
+        return f"Star {self.name} on GitHub, {self.votes} {noun}"
 
 
 def _clean(value: str) -> str:
@@ -276,7 +223,7 @@ def _parse_date(value: Any) -> datetime | None:
         parsed = datetime.fromisoformat(value)
     except ValueError:
         return None
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+    return (parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)).astimezone(UTC)
 
 
 def _is_https(url: str) -> bool:
@@ -290,19 +237,26 @@ def _is_https(url: str) -> bool:
     return bool(parts.hostname) and parts.username is None and parts.password is None
 
 
-def _license_label(value: Any) -> str:
+def _license_view(value: Any) -> tuple[str, str]:
+    """Text and CSS class of a detected license (``None`` means no license file)."""
     if value is None:
-        return "No license file"
+        return "None", "warn"
     if isinstance(value, str) and value != "unknown" and _SPDX_LIKE.match(value):
-        return value
-    return "License not identified"
+        return value, ""
+    return "Unknown", ""
+
+
+def _source_text(url: str) -> str:
+    """The url as shown: no scheme, no trailing slash."""
+    return url.removeprefix("https://").rstrip("/")
 
 
 def copier_command(url: str, path: str | None, ref: str | None) -> str | None:
-    """The command to use a template with Copier, ``<name>`` kept literal.
+    """The command to use a template with Copier, as pasted into a terminal.
 
-    Values are shell-quoted. ``None`` when a value could be read as an option or
-    escape the checkout (validation refuses these too).
+    The new project is called ``my-project``. Values are shell-quoted. ``None``
+    when a value could be read as an option or escape the checkout (validation
+    refuses these too).
     """
     if not _is_https(url):
         return None
@@ -313,14 +267,15 @@ def copier_command(url: str, path: str | None, ref: str | None) -> str | None:
         if not path or path.startswith("/") or ".." in segments:
             return None
     quote = shlex.quote
+    project = PROJECT_NAME
     if path is None:
         if ref is None:
-            return f"copier copy {quote(url)} <name>"
-        return f"copier copy --vcs-ref {quote(ref)} {quote(url)} <name>"
-    steps = [f"git clone {quote(url)} <name>-src"]
+            return f"copier copy {quote(url)} {project}"
+        return f"copier copy --vcs-ref {quote(ref)} {quote(url)} {project}"
+    steps = [f"git clone {quote(url)} {project}-src"]
     if ref is not None:
-        steps.append(f"git -C <name>-src checkout {quote(ref)}")
-    steps.append(f"copier copy <name>-src/{quote(path)} <name>")
+        steps.append(f"git -C {project}-src checkout {quote(ref)}")
+    steps.append(f"copier copy {project}-src/{quote(path)} {project}")
     return " && ".join(steps)
 
 
@@ -338,29 +293,57 @@ def resolved_tags(taxonomy: Taxonomy, tags: Any) -> list[str]:
     return result
 
 
+def tag_positions(taxonomy: Taxonomy) -> dict[str, int]:
+    """Position of every kind, then every tag (deprecated included), in file order."""
+    positions: dict[str, int] = {}
+    for name in (*taxonomy.kinds, *taxonomy.tags):
+        positions.setdefault(name, len(positions))
+    return positions
+
+
+def _star_url(votes: dict[str, Any] | None, repo_url: str) -> str:
+    """The discussion to open, else the repository's Discussions page."""
+    url = (votes or {}).get("discussion_url")
+    if (
+        isinstance(url, str)
+        and url.startswith("https://github.com/")
+        and _is_https(url)
+    ):
+        return url
+    return f"{repo_url}/discussions"
+
+
 def build_view(
     entry: Entry,
     taxonomy: Taxonomy,
     detected: dict[str, Any] | None,
     votes: dict[str, Any] | None,
-    markdown: MarkdownIt,
+    site: SiteConfig,
 ) -> TemplateView:
     """Merge an entry with its detected data and its votes."""
     fields = entry.fields
     url = _text(fields.get("url"), "") or ""
     path = _text(fields.get("path")) or None
     ref = _text(fields.get("ref")) or None
+    positions = tag_positions(taxonomy)
+    names: list[str] = []
+    kind = _text(fields.get("kind"), "") or ""
+    for name in ([kind] if kind else []) + resolved_tags(taxonomy, fields.get("tags")):
+        if name not in names:
+            names.append(name)
+    linked = _is_https(url)
     view = TemplateView(
         id=entry.id,
         name=_text(fields.get("name")) or entry.id,
         description=_text(fields.get("description"), "") or "",
-        kind=_text(fields.get("kind"), "") or "",
-        tags=resolved_tags(taxonomy, fields.get("tags")),
-        language=_text(entry.language, "en") or "en",
+        tags=[TagView(n, positions.get(n, 0) % TAG_COLORS) for n in names],
         url=url,
-        repo_link=url if _is_https(url) else None,
+        repo_link=url if linked else None,
+        source_text=_source_text(url) if linked else url,
         path=path,
         ref=ref,
+        votes=0,
+        star_url=_star_url(votes, site.repo_url),
     )
 
     count = (votes or {}).get("votes")
@@ -369,66 +352,52 @@ def build_view(
 
     status = (detected or {}).get("status")
     if detected is None or status not in ("ok", "failed"):
-        view.notice = (
-            "This template has not been analysed yet. "
-            "The information below comes from its entry."
-        )
         return view
     if status == "failed":
-        view.state = "failed"
-        reason = ERROR_REASONS.get(detected.get("error"))
-        view.notice = (
-            "The automatic analysis of this template is not available"
-            + (f": {reason}" if reason else "")
-            + ". The information below comes from its entry."
-        )
+        error = detected.get("error")
+        reason = ERROR_REASONS.get(error) if isinstance(error, str) else None
+        reason = reason or GENERIC_FAILURE
+        view.tree_unavailable = f"File tree unavailable: {reason}."
         return view
 
-    view.state = "ok"
-    view.license = _license_label(detected.get("license"))
-    view.copier = detected.get("copier") is True
-    view.tools = _text_list(detected.get("tools"))
+    view.license_text, view.license_class = _license_view(detected.get("license"))
     view.updated = _parse_date(detected.get("last_update"))
-    commit = detected.get("commit")
-    if isinstance(commit, str) and _COMMIT.match(commit):
-        view.commit = commit[:7]
-    view.tree = _text_list(detected.get("tree"))
-    view.tree_truncated = detected.get("tree_truncated") is True
-    preview = detected.get("preview")
-    if isinstance(preview, str) and preview.strip():
-        view.preview = render_preview(markdown, preview)
-    if view.copier:
+    tree = detected.get("tree")
+    if isinstance(tree, list):
+        rendered = render_tree(_text_list(tree))
+        view.tree_text = rendered.text
+        view.tree_summary = rendered.summary
+        view.tree_truncated = detected.get("tree_truncated") is True
+    if detected.get("copier") is True:
         view.command = copier_command(url, path, ref)
     return view
 
 
-def vote_order(view: TemplateView) -> tuple[int, str, str]:
-    """Ranking: votes descending, then name, then id."""
-    return (-view.votes, view.sort_name, view.id)
+def vote_order(view: TemplateView) -> tuple[int, int, int, str, str]:
+    """Ranking: stars, then last update (unknown last), then name, then id."""
+    ts = view.updated_ts
+    return (
+        -view.votes,
+        1 if ts is None else 0,
+        0 if ts is None else -ts,
+        view.sort_name,
+        view.id,
+    )
 
 
-def build_filters(taxonomy: Taxonomy) -> dict[str, Any]:
-    """Filters come only from the taxonomy: kinds, then groups, then 'Other'."""
-    kinds = [
-        {"name": name, "description": desc} for name, desc in taxonomy.kinds.items()
-    ]
-    active = taxonomy.active_tags
-    seen: set[str] = set()
-    groups: list[dict[str, Any]] = []
-
-    def add_group(name: str, tag_names: Sequence[str]) -> None:
-        tags = []
-        for tag in tag_names:
-            if tag in active and tag not in seen:
-                seen.add(tag)
-                tags.append({"name": tag, "description": active[tag]})
-        if tags:
-            groups.append({"name": name, "tags": tags})
-
-    for group in taxonomy.groups:
-        add_group(group.name, group.tags)
-    add_group("Other", list(taxonomy.ungrouped_active_tags))
-    return {"kinds": kinds, "groups": groups}
+def build_filters(views: Sequence[TemplateView], taxonomy: Taxonomy) -> list[TagView]:
+    """The tags used by at least one card, in taxonomy order, others last."""
+    positions = tag_positions(taxonomy)
+    used: dict[str, TagView] = {}
+    for view in views:
+        for tag in view.tags:
+            used.setdefault(tag.name, tag)
+    last = len(positions)
+    ordered = sorted(
+        enumerate(used.values()),
+        key=lambda item: (positions.get(item[1].name, last), item[0]),
+    )
+    return [tag for _, tag in ordered]
 
 
 # --------------------------------------------------------------------------
@@ -462,7 +431,6 @@ def build(
         trim_blocks=True,
         lstrip_blocks=True,
     )
-    markdown = make_preview_renderer()
 
     views: list[TemplateView] = []
     for entry in registry.entries:
@@ -475,19 +443,19 @@ def build(
                 registry.taxonomy,
                 detected.get(entry.id),
                 votes.get(entry.id),
-                markdown,
+                site,
             )
         )
 
     context = {"site": site}
-    (output / "assets").mkdir(parents=True, exist_ok=True)
+    (output / "assets" / "fonts").mkdir(parents=True, exist_ok=True)
     (output / "schema").mkdir(parents=True, exist_ok=True)
 
     index = env.get_template("index.html").render(
         **context,
         root="",
         cards=sorted(views, key=vote_order),
-        filters=build_filters(registry.taxonomy),
+        filters=build_filters(views, registry.taxonomy),
     )
     (output / "index.html").write_text(index, encoding="utf-8")
 
@@ -500,6 +468,9 @@ def build(
 
     for asset in ("site.css", "site.js"):
         shutil.copyfile(site_dir / "assets" / asset, output / "assets" / asset)
+    shutil.copytree(
+        site_dir / "assets" / "fonts", output / "assets" / "fonts", dirs_exist_ok=True
+    )
     shutil.copyfile(
         root / "schema" / "template.schema.json",
         output / "schema" / "template.schema.json",

@@ -1,83 +1,44 @@
 {% extends "base.html" %}
-{% block header %}{% endblock %}
+{% import "_parts.html" as parts %}
+{% block wrap %}home{% endblock %}
+{% block logo %}{{ parts.logo(36) }}{% endblock %}
+{% block nav %}
+    <a class="muted" href="{{ site.repo_url }}">GitHub</a>
+    <a class="btn-primary" href="{{ site.submit_url }}">Submit a template</a>
+{% endblock %}
 {% block content %}
-<header class="intro">
-  <h1 id="page-title">{{ site.title }}</h1>
-  <p>
-    <a class="button" href="{{ site.contributing_url }}" rel="noopener noreferrer">Submit a template</a>
-    <span class="hint">A pull request with one small file, see CONTRIBUTING.md.</span>
-  </p>
-</header>
+<section class="intro">
+  <h1>Spec templates for agent-driven projects.</h1>
+  <p>A specs repo holds what a project is about (goals, conventions, tasks), written for the humans and AI agents who build it. Compare the structures below, star the ones you like, and start yours with a single command.</p>
+</section>
 
 {% if cards %}
-<section id="filters" class="filters" aria-labelledby="filters-title" hidden>
-  <details id="filter-panel" open>
-  <summary><h2 id="filters-title">Filter and sort</h2></summary>
-  <fieldset>
-    <legend>Kind</legend>
-    <div class="options">
-      <label class="option"><input type="radio" name="kind" value="" checked> All</label>
-      {% for kind in filters.kinds %}
-      <label class="option" title="{{ kind.description }}"><input type="radio" name="kind" value="{{ kind.name }}"> {{ kind.name }}</label>
-      {% endfor %}
-    </div>
-  </fieldset>
-  {% if filters.groups %}
-  <div class="tag-filters" role="group" aria-labelledby="tags-title">
-    <h3 id="tags-title">Tags</h3>
-    <p class="hint">Select several tags to see the templates that have all of them.</p>
-    {% for group in filters.groups %}
-    <fieldset>
-      <legend>{{ group.name }}</legend>
-      <div class="options">
-        {% for tag in group.tags %}
-        <label class="option" title="{{ tag.description }}"><input type="checkbox" name="tag" value="{{ tag.name }}"> {{ tag.name }}</label>
-        {% endfor %}
-      </div>
-    </fieldset>
+<div class="filters">
+  <div class="tags" id="filters" role="group" aria-label="Filter by tag">
+    <button type="button" data-tag="" aria-pressed="true" hidden>All</button>
+    {% for tag in filters %}
+    <button type="button" data-tag="{{ tag.name }}" aria-pressed="false" hidden><span class="dot c{{ tag.color }}"></span>{{ tag.name }}</button>
     {% endfor %}
   </div>
-  {% endif %}
-  <div class="controls">
-    <label for="sort">Sort by</label>
-    <select id="sort" name="sort">
-      <option value="votes" selected>Most votes</option>
-      <option value="updated">Latest update</option>
-    </select>
-    <button type="button" id="clear" hidden>Clear filters</button>
-  </div>
-  </details>
-</section>
-{% endif %}
+  <p class="count" id="count" aria-live="polite">{{ cards|length }} {{ 'template' if cards|length == 1 else 'templates' }}, sorted by stars</p>
+</div>
 
-<section aria-labelledby="list-title">
-  <h2 id="list-title">Templates</h2>
-  {% if cards %}
-  <p id="count" class="count" role="status" aria-live="polite" aria-atomic="true" hidden></p>
-  <ul id="cards" class="cards">
-    {% for v in cards %}
-    <li class="card" data-id="{{ v.id }}" data-kind="{{ v.kind }}" data-tags='{{ v.tags|tojson }}' data-votes="{{ v.votes }}" data-updated="{{ v.updated_ts if v.updated_ts is not none else '' }}" data-name="{{ v.sort_name }}">
-      <h3><a href="templates/{{ v.id }}/">{{ v.name }}</a></h3>
-      <p class="description">{{ v.description }}</p>
-      <ul class="chips" aria-label="Kind and tags">
-        <li class="chip kind">{{ v.kind }}</li>
-        {% for tag in v.tags %}
-        <li class="chip">{{ tag }}</li>
-        {% endfor %}
-      </ul>
-      <ul class="facts">
-        <li class="votes"><span aria-hidden="true">&#128077;</span> {{ v.votes }} {{ 'vote' if v.votes == 1 else 'votes' }}</li>
-        {% if v.license %}<li>{{ v.license }}</li>{% endif %}
-        {% if v.updated_date %}<li>Updated <time datetime="{{ v.updated_iso }}">{{ v.updated_date }}</time></li>{% endif %}
-        {% if v.copier %}<li>Copier template</li>{% endif %}
-        {% if v.tools %}<li>Tools: {{ v.tools|join(', ') }}</li>{% endif %}
-      </ul>
-    </li>
-    {% endfor %}
-  </ul>
-  <p id="empty" class="empty" hidden>No template matches these filters. <button type="button" id="empty-clear">Clear filters</button></p>
-  {% else %}
-  <p>No template has been published yet.</p>
-  {% endif %}
-</section>
+<div class="grid">
+  {% for v in cards %}
+  <article class="card" data-id="{{ v.id }}" data-tags='{{ v.tag_names|tojson }}'>
+    <div class="card-head">
+      <div>
+        <h2><a href="templates/{{ v.id }}/">{{ v.name }}</a></h2>
+        <p class="desc">{{ v.description }}</p>
+      </div>
+      {{ parts.star(v, false) }}
+    </div>
+    {{ parts.meta(v) }}
+    {{ parts.tree(v) }}
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<p class="empty">No template has been published yet.</p>
+{% endif %}
 {% endblock %}
