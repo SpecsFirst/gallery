@@ -28,6 +28,11 @@ def build(wf: dict[str, Any]) -> dict[str, Any]:
 
 
 @pytest.fixture(scope="module")
+def discussions(wf: dict[str, Any]) -> dict[str, Any]:
+    return wf["jobs"]["discussions"]
+
+
+@pytest.fixture(scope="module")
 def deploy(wf: dict[str, Any]) -> dict[str, Any]:
     return wf["jobs"]["deploy"]
 
@@ -58,7 +63,55 @@ def test_concurrency_serializes_pages_runs(wf: dict[str, Any]) -> None:
 
 
 def test_jobs(wf: dict[str, Any]) -> None:
-    assert set(wf["jobs"]) == {"build", "deploy"}
+    assert list(wf["jobs"]) == ["discussions", "build", "deploy"]
+
+
+def test_discussions_permissions_and_timeout(discussions: dict[str, Any]) -> None:
+    assert discussions["permissions"] == {"contents": "read", "discussions": "write"}
+    assert discussions["timeout-minutes"] == 10
+    assert "needs" not in discussions
+    assert "env" not in discussions
+
+
+def test_discussions_run_only_on_main(discussions: dict[str, Any]) -> None:
+    # workflow_dispatch can target any branch: only main's registry may create threads.
+    assert discussions["if"] == "github.ref == 'refs/heads/main'"
+
+
+def test_discussions_steps_in_order(discussions: dict[str, Any]) -> None:
+    steps = discussions["steps"]
+    order = [
+        step_index(steps, "actions/checkout@v4"),
+        step_index(steps, "astral-sh/setup-uv@v5"),
+        step_index(steps, "actions/setup-python@v5"),
+        step_index(steps, "uv sync --frozen"),
+        step_index(steps, "gallery.discussions"),
+    ]
+    assert order == list(range(5))
+    assert len(steps) == 5
+    assert steps[0]["with"]["persist-credentials"] is False
+    assert steps[2]["with"] == {"python-version-file": ".python-version"}
+
+
+def test_discussions_step_runs_the_command_with_only_the_token(
+    discussions: dict[str, Any],
+) -> None:
+    step = discussions["steps"][step_index(discussions["steps"], "gallery.discussions")]
+    assert step["run"] == "uv run python -m gallery.discussions"
+    assert step["env"] == {"GITHUB_TOKEN": "${{ github.token }}"}
+
+
+def test_no_run_script_interpolates_an_expression(wf: dict[str, Any]) -> None:
+    for job in wf["jobs"].values():
+        for step in job["steps"]:
+            assert "${{" not in step.get("run", "")
+
+
+def test_build_waits_for_discussions_but_runs_when_they_fail(
+    build: dict[str, Any],
+) -> None:
+    assert build["needs"] == "discussions"
+    assert build["if"] == "${{ !cancelled() }}"
 
 
 def test_build_permissions_and_timeout(build: dict[str, Any]) -> None:
@@ -104,22 +157,27 @@ def test_jq_step_fails_with_an_error_annotation(build: dict[str, Any]) -> None:
     assert "length) == 0" in step["run"]
 
 
-def test_token_only_on_the_votes_step(
-    wf: dict[str, Any], build: dict[str, Any], deploy: dict[str, Any]
+def test_token_only_on_the_votes_and_discussions_steps(
+    wf: dict[str, Any],
+    discussions: dict[str, Any],
+    build: dict[str, Any],
+    deploy: dict[str, Any],
 ) -> None:
     holders = [
         step
-        for job in (build, deploy)
+        for job in (discussions, build, deploy)
         for step in job["steps"]
         if "GITHUB_TOKEN" in yaml.safe_dump(step.get("env", {}))
     ]
-    assert len(holders) == 1
-    assert "gallery.votes" in holders[0]["run"]
-    assert holders[0]["env"] == {"GITHUB_TOKEN": "${{ github.token }}"}
-    assert TEXT.count("github.token") == 1
-    assert TEXT.count("GITHUB_TOKEN") == 1
+    assert len(holders) == 2
+    assert "gallery.discussions" in holders[0]["run"]
+    assert "gallery.votes" in holders[1]["run"]
+    for holder in holders:
+        assert holder["env"] == {"GITHUB_TOKEN": "${{ github.token }}"}
+    assert TEXT.count("github.token") == 2
+    assert TEXT.count("GITHUB_TOKEN") == 2
     assert "secrets." not in TEXT
-    for job in (build, deploy):
+    for job in (discussions, build, deploy):
         assert "env" not in job
     assert "env" not in wf
 
