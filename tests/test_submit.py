@@ -132,9 +132,9 @@ def test_form_matches_the_contract() -> None:
         "dropdown",
         "input",
         "input",
-        "checkbox",
+        "checkboxes",
     ]
-    for field in fields:
+    for field in fields[:6]:
         if field["id"] != "command":
             assert field["validations"]["required"] is True
         else:
@@ -149,8 +149,10 @@ def test_form_matches_the_contract() -> None:
     checkbox = fields[6]
     assert checkbox["attributes"]["label"] == "Model and provider agnosticism"
     assert checkbox["attributes"]["options"] == [
-        {"label": "This template is model- and provider-agnostic"}
+        {"label": "This template is model- and provider-agnostic", "required": True}
     ]
+    # GitHub issue forms: a checkbox is required per option, not with `validations`.
+    assert "validations" not in checkbox
     intro = form["body"][0]
     assert intro["type"] == "markdown"
     assert "👍" in intro["attributes"]["value"]

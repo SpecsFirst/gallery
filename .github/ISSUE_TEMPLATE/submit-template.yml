@@ -67,12 +67,11 @@ body:
       placeholder: copier copy https://github.com/you/your-template my-project
     validations:
       required: false
-  - type: checkbox
+  - type: checkboxes
     id: agnostic
     attributes:
       label: Model and provider agnosticism
       description: The gallery refuses templates that ship files for one agent tool.
       options:
         - label: This template is model- and provider-agnostic
-    validations:
-      required: true
+          required: true
