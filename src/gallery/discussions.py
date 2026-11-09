@@ -130,9 +130,9 @@ def main(argv: Sequence[str] | None = None, transport: Transport = post_graphql)
     try:
         registry = load_registry(args.root)
         site = load_site_config(site_config_path(args.root))
-        owner, name = split_repo(site.giscus["repo"])
-        repo_id = site.giscus["repo_id"]
-        category_id = site.giscus["category_id"]
+        owner, name = split_repo(site.discussions["repo"])
+        repo_id = site.discussions["repo_id"]
+        category_id = site.discussions["category_id"]
     except VotesError as exc:
         print(f"discussions: {exc}", file=sys.stderr)
         return 2

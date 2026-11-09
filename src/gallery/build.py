@@ -172,12 +172,11 @@ class SiteConfig:
     """The public configuration read from site.yml."""
 
     title: str
-    tagline: str
-    giscus: dict[str, str]
+    discussions: dict[str, str]
 
     @property
     def repo_url(self) -> str:
-        return f"https://github.com/{self.giscus['repo']}"
+        return f"https://github.com/{self.discussions['repo']}"
 
     @property
     def contributing_url(self) -> str:
@@ -185,26 +184,24 @@ class SiteConfig:
 
 
 def load_site_config(path: Path) -> SiteConfig:
-    """Read site.yml: title, tagline and the giscus configuration."""
+    """Read site.yml: the title and the Discussions configuration."""
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as exc:
         raise BuildError(f"{path}: cannot read site configuration: {exc}") from exc
     if not isinstance(raw, dict):
         raise BuildError(f"{path}: site configuration must be a mapping")
-    giscus = raw.get("giscus")
-    if not isinstance(giscus, dict):
-        raise BuildError(f"{path}: missing 'giscus' mapping")
-    for key in ("title", "tagline"):
-        if not isinstance(raw.get(key), str):
-            raise BuildError(f"{path}: '{key}' must be a string")
+    discussions = raw.get("discussions")
+    if not isinstance(discussions, dict):
+        raise BuildError(f"{path}: missing 'discussions' mapping")
+    if not isinstance(raw.get("title"), str):
+        raise BuildError(f"{path}: 'title' must be a string")
     for key in ("repo", "repo_id", "category", "category_id"):
-        if not isinstance(giscus.get(key), str) or not giscus[key]:
-            raise BuildError(f"{path}: 'giscus.{key}' must be a non-empty string")
+        if not isinstance(discussions.get(key), str) or not discussions[key]:
+            raise BuildError(f"{path}: 'discussions.{key}' must be a non-empty string")
     return SiteConfig(
         title=raw["title"],
-        tagline=raw["tagline"],
-        giscus={k: str(v) for k, v in giscus.items()},
+        discussions={k: str(v) for k, v in discussions.items()},
     )
 
 

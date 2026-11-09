@@ -17,8 +17,7 @@ TOKEN = "ghs_SECRET_TOKEN_VALUE_123"  # noqa: S105 - a fake token for the tests
 
 SITE_YML = """\
 title: Test
-tagline: Test
-giscus:
+discussions:
   repo: Owner/the-repo
   repo_id: R_abc
   category: Templates

@@ -214,15 +214,15 @@ def test_unreadable_data_file_is_an_error_but_missing_is_not(repo, tmp_path, cap
 
 def test_site_config_is_read_from_site_yml(repo, tmp_path):
     (repo / "site.yml").write_text(
-        "title: Other title\ntagline: Other tagline\n"
-        "giscus:\n  repo: o/r\n  repo_id: RID\n  category: Cat\n  category_id: CID\n",
+        "title: Other title\n"
+        "discussions:\n  repo: o/r\n  repo_id: RID\n  category: Cat\n"
+        "  category_id: CID\n",
         encoding="utf-8",
     )
     out = build_site(repo, tmp_path)
 
     index = parse(out / "index.html")
     assert index.find("h1")[0].text() == "Other title"
-    assert "Other tagline" in index.text()
     (script,) = parse(out / "templates/alpha/index.html").find(
         "script", src="https://giscus.app/client.js"
     )
@@ -246,20 +246,20 @@ def test_default_site_config_matches_the_spec():
 
     site = load_site_config(REPO_ROOT / "site.yml")
 
-    assert site.giscus == {
+    assert site.discussions == {
         "repo": "SpecsFirst/gallery",
         "repo_id": "R_kgDOVlEEaQ",
         "category": "Templates",
         "category_id": "DIC_kwDOVlEEac4DKhwb",
     }
-    assert site.title and site.tagline
+    assert site.title
 
 
 def test_invalid_site_config(tmp_path):
     from gallery.build import load_site_config
 
     path = tmp_path / "site.yml"
-    path.write_text("title: x\ntagline: y\n", encoding="utf-8")
+    path.write_text("title: x\n", encoding="utf-8")
     with pytest.raises(BuildError):
         load_site_config(path)
 
@@ -448,7 +448,7 @@ def test_no_taxonomy_name_is_hard_coded():
     ]
     files = [REPO_ROOT / "src/gallery/build.py", *(REPO_ROOT / "site").rglob("*")]
     for path in files:
-        if not path.is_file():
+        if not path.is_file() or path.suffix == ".woff2":
             continue
         text = path.read_text(encoding="utf-8")
         for name in names:
