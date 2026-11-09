@@ -73,6 +73,11 @@ def test_discussions_permissions_and_timeout(discussions: dict[str, Any]) -> Non
     assert "env" not in discussions
 
 
+def test_discussions_run_only_on_main(discussions: dict[str, Any]) -> None:
+    # workflow_dispatch can target any branch: only main's registry may create threads.
+    assert discussions["if"] == "github.ref == 'refs/heads/main'"
+
+
 def test_discussions_steps_in_order(discussions: dict[str, Any]) -> None:
     steps = discussions["steps"]
     order = [
