@@ -158,7 +158,6 @@ def test_normal_repo(source: Source):
     assert result["tools"] == [
         ".claude/",
         ".github/copilot-instructions.md",
-        "AGENTS.md",
         "CLAUDE.md",
     ]
     assert result["last_update"] == "2026-10-01T09:30:00Z"
@@ -181,6 +180,57 @@ def test_normal_repo(source: Source):
     ]
     assert result["tree_truncated"] is False
     assert result["preview"] == "# Hello\n\nA template.\n"
+
+
+def test_tool_markers_cover_the_refused_list(source: Source) -> None:
+    markers = {m.rstrip("/") for m in detect.TOOL_MARKERS}
+    assert markers == {
+        "CLAUDE.md",
+        ".claude",
+        "GEMINI.md",
+        ".gemini",
+        ".cursor",
+        ".cursorrules",
+        ".kiro",
+        ".windsurf",
+        ".github/copilot-instructions.md",
+        ".github/prompts",
+    }
+    assert "AGENTS.md" not in markers
+
+
+def test_tool_specific_markers_are_all_detected(source: Source) -> None:
+    source.commit(
+        {
+            "CLAUDE.md": "c",
+            ".claude/s.json": "{}",
+            "GEMINI.md": "g",
+            ".gemini/x": "x",
+            ".cursor/y": "y",
+            ".cursorrules": "r",
+            ".kiro/z": "z",
+            ".windsurf/w": "w",
+            ".github/copilot-instructions.md": "h",
+            ".github/prompts/foo.md": "p",
+            "AGENTS.md": "agents",
+            "main.md": "# ok\n",
+        }
+    )
+    result = detect_source(source)
+    assert result["status"] == "ok"
+    assert result["tools"] == [
+        ".claude/",
+        ".cursor/",
+        ".cursorrules",
+        ".gemini/",
+        ".github/copilot-instructions.md",
+        ".github/prompts/",
+        ".kiro/",
+        ".windsurf/",
+        "CLAUDE.md",
+        "GEMINI.md",
+    ]
+    assert "AGENTS.md" not in result["tools"]
 
 
 def test_no_license_no_copier_no_main(source: Source):

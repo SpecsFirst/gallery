@@ -5,15 +5,39 @@ The easiest way to add a template is the
 You need a GitHub account and a public git repository (on GitHub, GitLab or any other
 forge, over https).
 
+## Templates must be model- and provider-agnostic
+
+The gallery lists specs for humans and any agent. A template that ships files for one
+agent tool ties its users to that tool and its provider, so the gallery refuses a
+repository that holds any of these tool-specific files:
+
+```
+CLAUDE.md
+.claude/
+GEMINI.md
+.gemini/
+.cursor/
+.cursorrules
+.kiro/
+.windsurf/
+.github/copilot-instructions.md
+.github/prompts/
+```
+
+`AGENTS.md` is the agnostic entry point and is the place for agent instructions: it is
+allowed, and recommended.
+
 ## Submit with the form
 
-1. Open the form and fill in four fields: the repository URL, a name (3 to 60 characters;
+1. Open the form and fill in the fields: the repository URL, a name (3 to 60 characters;
    it gives the template's id, shown in its URL), a one-line description (20 to 200
-   characters: who it is for, what is different) and the tags: exactly one kind and up to
-   4 tags from [`taxonomy.yml`](taxonomy.yml), separated by commas.
-2. A bot answers on your issue. It checks your repository, then
-   shows the entry it would add, or lists what to fix. Edit your issue to fix it: the
-   check runs again and the bot updates its comment.
+   characters: who it is for, what is different), where the specs live (their own repo or
+   the code repo) and the tags: exactly one kind and up to 4 tags from
+   [`taxonomy.yml`](taxonomy.yml), separated by commas. Optionally give the exact install
+   command, and check the box to confirm the template is model- and provider-agnostic.
+2. A bot answers on your issue. It checks your repository, then shows the entry it would
+   add, or lists what to fix. Edit your issue to fix it: the check runs again and the bot
+   updates its comment.
 3. When the entry is valid, the comment has a link. It opens GitHub's "new file" page,
    with `templates/<id>.yml` already filled in. Click **Commit changes…**, then **Propose
    changes**: GitHub forks the repository for you and opens a pull request. Keep (or add)
@@ -27,6 +51,25 @@ forge, over https).
 The `<id>` is the name in lowercase, with letters and digits separated by single hyphens
 (`Research thesis` gives `research-thesis`). Pick the name once and keep it: the id is in
 the template's URL and in the title of its Discussion.
+
+## The placement and the install command
+
+"Where the specs live?" chooses the template's `placement`:
+
+- **In their own repo** (`standalone`): the specs are a separate repository from the code
+  they drive.
+- **In the code repo** (`in-repo`): the specs live in the same repository as the code.
+
+The optional **install command** is the exact one-line command that starts a new project
+from the template, shown as is on the template's page. If you leave it empty, the gallery
+builds one from a `copier.yml`.
+
+## Copier
+
+[Copier](https://copier.readthedocs.io/) is the recommended way to ship a template: a
+`copier.yml` at the root of the repository gives visitors the one-command install
+(`copier copy <url> my-project`). The gallery detects the `copier.yml` and builds the
+command for you.
 
 ## What the gallery detects, so you do not declare it
 
@@ -73,7 +116,7 @@ command: copier copy https://github.com/example/template-teaching-lab my-project
 | `command`     | no       | The exact install command to show, on one line, 1 to 300 characters, with no control character (it is pasted into terminals). |
 | `language`    | no       | Two lowercase letters, such as `fr`. Default: `en`.             |
 
-Any other field is refused (the form fills only the first five).
+Any other field is refused (the form fills only the fields above).
 
 ## Kinds and tags
 

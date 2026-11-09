@@ -66,12 +66,25 @@ def body(
     url: str = "https://github.com/example/new-template",
     name: str = "Teaching lab notebook",
     description: str = "A specs repo for a lab course, shared by students and agents.",
+    placement: str = "In their own repo",
     tags: str = "research, thesis",
+    command: str = "",
+    agnostic: bool = True,
 ) -> str:
     """A body in the format GitHub gives for the form."""
+    agnostic_line = (
+        "- [x] This template is model- and provider-agnostic"
+        if agnostic
+        else "- [ ] This template is model- and provider-agnostic"
+    )
+    command_value = command or "_No response_"
     return (
         f"### Repository URL\n\n{url}\n\n### Name\n\n{name}\n\n"
-        f"### One-line description\n\n{description}\n\n### Tags\n\n{tags}"
+        f"### One-line description\n\n{description}\n\n"
+        f"### Where do the specs live?\n\n{placement}\n\n"
+        f"### Tags\n\n{tags}\n\n"
+        f"### Install command\n\n{command_value}\n\n"
+        f"### Model and provider agnosticism\n\n{agnostic_line}"
     )
 
 
@@ -103,14 +116,45 @@ def test_form_matches_the_contract() -> None:
     assert form["title"] == "Template: "
     assert form["labels"] == ["submission"]
     fields = [item for item in form["body"] if item["type"] != "markdown"]
-    assert [f["id"] for f in fields] == ["url", "name", "description", "tags"]
-    assert all(f["type"] == "input" for f in fields)
-    assert all(f["validations"]["required"] is True for f in fields)
+    assert [f["id"] for f in fields] == [
+        "url",
+        "name",
+        "description",
+        "placement",
+        "tags",
+        "command",
+        "agnostic",
+    ]
+    assert [f["type"] for f in fields] == [
+        "input",
+        "input",
+        "input",
+        "dropdown",
+        "input",
+        "input",
+        "checkbox",
+    ]
+    for field in fields:
+        if field["id"] != "command":
+            assert field["validations"]["required"] is True
+        else:
+            assert field["validations"]["required"] is False
     assert "language" not in {f["id"] for f in fields}
+    placement = fields[3]
+    assert placement["attributes"]["label"] == "Where do the specs live?"
+    assert placement["attributes"]["options"] == [
+        "In their own repo",
+        "In the code repo",
+    ]
+    checkbox = fields[6]
+    assert checkbox["attributes"]["label"] == "Model and provider agnosticism"
+    assert checkbox["attributes"]["options"] == [
+        {"label": "This template is model- and provider-agnostic"}
+    ]
     intro = form["body"][0]
     assert intro["type"] == "markdown"
     assert "👍" in intro["attributes"]["value"]
-    assert "taxonomy.yml" in fields[3]["attributes"]["description"]
+    assert "taxonomy.yml" in fields[4]["attributes"]["description"]
 
 
 def test_labels_are_read_from_the_form(labels: dict[str, str]) -> None:
@@ -118,7 +162,10 @@ def test_labels_are_read_from_the_form(labels: dict[str, str]) -> None:
         "url": "Repository URL",
         "name": "Name",
         "description": "One-line description",
+        "placement": "Where do the specs live?",
         "tags": "Tags",
+        "command": "Install command",
+        "agnostic": "Model and provider agnosticism",
     }
 
 
@@ -136,25 +183,39 @@ def test_parse_real_body(labels: dict[str, str]) -> None:
         "url": "https://github.com/example/new-template",
         "name": "Teaching lab notebook",
         "description": "A specs repo for a lab course, shared by students and agents.",
+        "placement": "In their own repo",
         "tags": "research, thesis",
+        "command": "",
+        "agnostic": "- [x] This template is model- and provider-agnostic",
     }
 
 
 def test_no_response_is_empty(labels: dict[str, str]) -> None:
     values = parse_body(body(tags="_No response_"), labels)
     assert values["tags"] == ""
+    values = parse_body(body(command="_No response_"), labels)
+    assert values["command"] == ""
 
 
 def test_missing_and_extra_headings(labels: dict[str, str]) -> None:
     text = "### Name\n\nOnly a name\n\n### Something else\n\nignored\n\n### Tags\n\nx"
     values = parse_body(text, labels)
-    assert values == {"url": "", "name": "Only a name", "description": "", "tags": "x"}
+    assert values == {
+        "url": "",
+        "name": "Only a name",
+        "description": "",
+        "placement": "",
+        "tags": "x",
+        "command": "",
+        "agnostic": "",
+    }
 
 
 def test_crlf_body(labels: dict[str, str]) -> None:
     values = parse_body(body().replace("\n", "\r\n"), labels)
     assert values["name"] == "Teaching lab notebook"
     assert values["url"] == "https://github.com/example/new-template"
+    assert values["placement"] == "In their own repo"
 
 
 def test_first_section_of_a_label_wins(labels: dict[str, str]) -> None:
@@ -194,7 +255,72 @@ def test_ok_entry_yaml_byte_for_byte(root: Path) -> None:
         "description: A specs repo for a lab course, shared by students and agents.\n"
         "kind: research\n"
         "tags: [thesis, multi-repo]\n"
+        "placement: standalone\n"
     )
+
+
+def test_both_placements_are_mapped(root: Path) -> None:
+    own = check_body(body(placement="In their own repo"), root, detect_ok)
+    assert own.ok, texts(own)
+    assert "placement: standalone\n" in (own.yaml_text or "")
+    code = check_body(body(placement="In the code repo"), root, detect_ok)
+    assert code.ok, texts(code)
+    assert "placement: in-repo\n" in (code.yaml_text or "")
+
+
+def test_missing_or_unknown_placement_is_refused(root: Path) -> None:
+    outcome = check_body(body(placement="_No response_"), root, never_detect)
+    assert not outcome.ok
+    assert "choose where the specs live" in texts(outcome)
+    assert len(outcome.problems) == 1
+    outcome = check_body(body(placement="Somewhere else"), root, never_detect)
+    assert not outcome.ok
+    assert "choose where the specs live" in texts(outcome)
+
+
+def test_command_is_written_only_when_filled(root: Path) -> None:
+    absent = check_body(body(command=""), root, detect_ok)
+    assert absent.ok, texts(absent)
+    assert "command" not in (absent.yaml_text or "")
+    present = check_body(
+        body(command="copier copy https://github.com/example/new-template my-project"),
+        root,
+        detect_ok,
+    )
+    assert present.ok, texts(present)
+    assert (
+        "command: copier copy https://github.com/example/new-template my-project\n"
+        in (present.yaml_text or "")
+    )
+    assert (present.yaml_text or "").index("placement:") < (
+        present.yaml_text or ""
+    ).index("command:")
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "x" * 301,
+        "two\nlines",
+        "bad\x00command",
+        "bidi\u202eoverride",
+    ],
+)
+def test_invalid_command_is_refused(root: Path, command: str) -> None:
+    outcome = check_body(body(command=command), root, never_detect)
+    assert not outcome.ok
+    assert len(outcome.problems) == 1
+
+
+def test_unchecked_agnostic_box_is_refused(root: Path) -> None:
+    outcome = check_body(body(agnostic=False), root, never_detect)
+    assert not outcome.ok
+    assert "model- and provider-agnostic" in texts(outcome)
+    assert len(outcome.problems) == 1
+    outcome = check_body(
+        body(agnostic=False, placement="_No response_"), root, never_detect
+    )
+    assert texts(outcome).count("model- and provider-agnostic") == 1
 
 
 def test_tags_omitted_when_empty(root: Path) -> None:
@@ -202,7 +328,7 @@ def test_tags_omitted_when_empty(root: Path) -> None:
     assert outcome.ok
     assert outcome.yaml_text is not None
     assert "tags" not in outcome.yaml_text
-    assert outcome.yaml_text.endswith("kind: research\n")
+    assert outcome.yaml_text.endswith("kind: research\nplacement: standalone\n")
 
 
 def test_kind_can_come_anywhere(root: Path) -> None:
@@ -375,7 +501,15 @@ def test_empty_fields_are_each_reported(root: Path) -> None:
     assert fields.count("name") == 1
     assert fields.count("description") == 1
     assert fields.count("tags") == 1
-    assert all("empty" in p.text or "kind" in p.text for p in outcome.problems)
+    assert fields.count("placement") == 1
+    assert fields.count("agnostic") == 1
+    assert all(
+        "empty" in p.text
+        or "kind" in p.text
+        or "specs live" in p.text
+        or "model- and provider-agnostic" in p.text
+        for p in outcome.problems
+    )
 
 
 def test_url_with_credentials(root: Path) -> None:
@@ -471,6 +605,37 @@ def test_failed_comment(root: Path) -> None:
     assert "- **Name**: must have 3 to 60 characters." in comment
     assert "Edit this issue to fix them: the check runs again." in comment
     assert "new/main" not in comment
+
+
+def detect_tools(tools):
+    def detect(entry: Entry) -> dict[str, Any]:
+        result = dict(DETECTED_OK)
+        result["tools"] = tools
+        return result
+
+    return detect
+
+
+def test_clean_repository_gives_the_propose_link(root: Path) -> None:
+    outcome = check_body(body(), root, detect_ok)
+    assert outcome.ok, texts(outcome)
+    comment = render_comment(9, outcome)
+    assert "new/main" in comment
+    assert "tool-specific" not in comment
+
+
+def test_tool_specific_files_list_them_and_give_no_link(root: Path) -> None:
+    tools = [".claude/", ".github/prompts/", "CLAUDE.md"]
+    outcome = check_body(body(), root, detect_tools(tools))
+    assert not outcome.ok
+    comment = render_comment(4, outcome)
+    assert "model- and provider-agnostic" in comment
+    assert "tool-specific files" in comment
+    assert "`CLAUDE.md`" in comment
+    assert "`.claude/`" in comment
+    assert "`.github/prompts/`" in comment
+    assert "new/main" not in comment
+    assert "propose link" not in comment.lower()
 
 
 HOSTILE = [

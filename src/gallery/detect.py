@@ -81,18 +81,20 @@ ERRORS = (
 
 # --- Tables ------------------------------------------------------------------
 
-# Tool-specific files; a trailing "/" means a directory.
+# Tool-specific files; a trailing "/" means a directory. ``AGENTS.md`` is the
+# agnostic entry point and is not a marker. The gallery only lists templates
+# that hold none of these (ADR-009).
 TOOL_MARKERS = (
     "CLAUDE.md",
-    "AGENTS.md",
-    "GEMINI.md",
-    ".opencode/",
     ".claude/",
+    "GEMINI.md",
+    ".gemini/",
     ".cursor/",
     ".cursorrules",
-    ".windsurfrules",
-    ".aider.conf.yml",
+    ".kiro/",
+    ".windsurf/",
     ".github/copilot-instructions.md",
+    ".github/prompts/",
 )
 
 COPIER_FILES = ("copier.yml", "copier.yaml")

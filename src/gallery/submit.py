@@ -48,8 +48,14 @@ FORM_PATH = Path(".github") / "ISSUE_TEMPLATE" / "submit-template.yml"
 MARKER = "<!-- gallery-submission -->"
 NO_RESPONSE = "_No response_"
 DEFAULT_REPOSITORY = "SpecsFirst/gallery"
-FORM_FIELDS = ("url", "name", "description", "tags")
-ENTRY_ORDER = ("name", "url", "description", "kind", "tags")
+FORM_FIELDS = ("url", "name", "description", "placement", "tags", "command", "agnostic")
+ENTRY_ORDER = ("name", "url", "description", "kind", "tags", "placement", "command")
+
+# The form's "Where do the specs live?" choices, as the entry's ``placement``.
+PLACEMENT_BY_CHOICE = {
+    "In their own repo": "standalone",
+    "In the code repo": "in-repo",
+}
 
 MAX_BODY_BYTES = 64 * 1024
 MAX_COMMENT_CHARS = 60_000
@@ -302,6 +308,10 @@ def _issue_sentence(issue: Any, schema: dict[str, Any], labels: dict[str, str]) 
     if code == "schema:maxItems" and field == "tags":
         limit = props.get("maxItems")
         return f"**{label}**: use at most {limit} tags besides the kind."
+    if code == "schema:pattern" and field == "command":
+        return f"**{label}**: must be a single line."
+    if code == "command":
+        return f"**{label}**: must have no control characters."
     if code == "url_credentials":
         return f"**{label}**: must not contain a user name or a password."
     if code == "url":
@@ -390,6 +400,33 @@ def check_body(body: str, root: Path, detect: DetectFn = _detect) -> Outcome:
     if tags:
         fields["tags"] = tags
 
+    placement = PLACEMENT_BY_CHOICE.get(values["placement"].strip())
+    if placement is None:
+        refuse(
+            "placement",
+            "choose where the specs live: their own repo or the code repo.",
+        )
+    else:
+        fields["placement"] = placement
+
+    command = values["command"].strip()
+    if command:
+        if _CONTROL_RE.search(command):
+            refuse("command", "contains control characters.")
+        else:
+            fields["command"] = command
+
+    agnostic = values["agnostic"]
+    checked = any(
+        line.strip().lstrip("-").strip().lower().startswith("[x]")
+        for line in agnostic.splitlines()
+    )
+    if not checked:
+        refuse(
+            "agnostic",
+            "check the box to confirm the template is model- and provider-agnostic.",
+        )
+
     entry_id = slugify(fields["name"]) if "name" in fields else ""
     if "name" in fields and not ID_RE.match(entry_id):
         refuse("name", "gives no id; use letters or digits.", "id")
@@ -442,6 +479,19 @@ def check_body(body: str, root: Path, detect: DetectFn = _detect) -> Outcome:
                 str(detected.get("error")), "the repository could not be inspected"
             )
             problems.append(Problem("url", f"**{labels['url']}**: {reason}."))
+            detected = None
+        elif detected.get("tools"):
+            # Each name comes from detect's fixed TOOL_MARKERS, never from the
+            # repository's own strings (ADR-009): the gallery only lists
+            # model- and provider-agnostic templates.
+            problems.append(
+                Problem(
+                    "",
+                    "The repository holds tool-specific files: "
+                    f"{_spans(detected['tools'])}. "
+                    "The gallery only lists model- and provider-agnostic templates.",
+                )
+            )
             detected = None
 
     ok = not problems
