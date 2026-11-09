@@ -195,6 +195,19 @@ def _check_entry(entry, path: Path, taxonomy, schema, issues: list[Issue]) -> No
             )
         )
 
+    command = data.get("command")
+    if isinstance(command, str) and any(
+        ord(ch) < 0x20 or 0x7F <= ord(ch) <= 0x9F for ch in command
+    ):
+        issues.append(
+            Issue(
+                file=path,
+                message="command must not contain control characters",
+                field="command",
+                code="command",
+            )
+        )
+
 
 def _check_taxonomy(root: Path, issues: list[Issue]) -> Any:
     """Load the taxonomy and check its semantics. Returns the Taxonomy or None."""

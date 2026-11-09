@@ -19,6 +19,8 @@
 <dl class="meta">
   <dt>License</dt>
   <dd{% if v.license_class %} class="{{ v.license_class }}"{% endif %}>{{ v.license_text }}</dd>
+  <dt>Lives in</dt>
+  <dd>{{ v.placement_text }}</dd>
   <dt>Updated</dt>
   {% if v.updated_text %}
   <dd><time datetime="{{ v.updated_iso }}">{{ v.updated_text }}</time></dd>

@@ -42,6 +42,17 @@ SCHEMA = {
         },
         "path": {"type": "string"},
         "ref": {"type": "string"},
+        "placement": {
+            "type": "string",
+            "enum": ["standalone", "in-repo"],
+            "default": "standalone",
+        },
+        "command": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^[^\\r\\n]+$",
+        },
         "language": {"type": "string", "pattern": "^[a-z]{2}$", "default": "en"},
     },
 }

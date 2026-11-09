@@ -30,6 +30,19 @@
       "uniqueItems": true,
       "items": { "type": "string" }
     },
+    "placement": {
+      "description": "Where the template's specs live. Defaults to standalone.",
+      "type": "string",
+      "enum": ["standalone", "in-repo"],
+      "default": "standalone"
+    },
+    "command": {
+      "description": "Optional: the exact install command to show, on one line. Shown as is; otherwise the gallery builds one from the detected copier.yml.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300,
+      "pattern": "^[^\\r\\n]+$"
+    },
     "path": {
       "description": "Optional: subfolder holding the template, if not at the repo root.",
       "type": "string"

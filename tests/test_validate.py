@@ -97,6 +97,51 @@ def test_ref_starts_with_dash(tmp_path):
     assert validate(root) == 1
 
 
+def test_placement_standalone_and_in_repo_pass(tmp_path):
+    root = write_registry(tmp_path)
+    write_entry(root, "stand", {**VALID_ENTRY, "placement": "standalone"})
+    write_entry(root, "inrepo", {**VALID_ENTRY, "placement": "in-repo"})
+    assert validate(root) == 0
+
+
+def test_placement_unknown_value_fails(tmp_path):
+    root = write_registry(tmp_path)
+    write_entry(root, "bad", {**VALID_ENTRY, "placement": "elsewhere"})
+    assert validate(root) == 1
+
+
+def test_command_valid_on_one_line_passes(tmp_path):
+    root = write_registry(tmp_path)
+    write_entry(root, "good", {**VALID_ENTRY, "command": "make scaffold"})
+    assert validate(root) == 0
+
+
+def test_command_with_control_character_fails(tmp_path, capsys):
+    root = write_registry(tmp_path)
+    write_entry(root, "bad", {**VALID_ENTRY, "command": "make\tscaffold"})
+    assert validate(root) == 1
+    out = capsys.readouterr().out
+    assert "control character" in out
+
+
+def test_command_with_newline_fails_schema(tmp_path):
+    root = write_registry(tmp_path)
+    write_entry(root, "bad", {**VALID_ENTRY, "command": "one\ntwo"})
+    assert validate(root) == 1
+
+
+def test_command_too_long_fails_schema(tmp_path):
+    root = write_registry(tmp_path)
+    write_entry(root, "bad", {**VALID_ENTRY, "command": "x" * 301})
+    assert validate(root) == 1
+
+
+def test_command_short_fails_schema(tmp_path):
+    root = write_registry(tmp_path)
+    write_entry(root, "bad", {**VALID_ENTRY, "command": ""})
+    assert validate(root) == 1
+
+
 def test_deprecated_tag_is_warning_not_error(tmp_path, capsys):
     root = write_registry(tmp_path)
     write_entry(root, "dep", {**VALID_ENTRY, "tags": ["phd"]})

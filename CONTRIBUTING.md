@@ -56,6 +56,8 @@ url: https://github.com/example/template-teaching-lab
 description: A specs repo for a lab course, where students and agents share one task board.
 kind: research
 tags: [teaching, bench]
+placement: standalone
+command: copier copy https://github.com/example/template-teaching-lab my-project
 ```
 
 | Field         | Required | Limits                                                          |
@@ -67,6 +69,8 @@ tags: [teaching, bench]
 | `tags`        | no       | Up to 4 different tags from `taxonomy.yml`.                     |
 | `path`        | no       | Subfolder holding the template. Relative, with no `..`.         |
 | `ref`         | no       | Tag or commit to show (it cannot start with `-`). Default: the default branch. |
+| `placement`   | no       | `standalone` (default) or `in-repo`: where the template's specs live. Shown as "Lives in": "Own repo" or "Code repo". |
+| `command`     | no       | The exact install command to show, on one line, 1 to 300 characters, with no control character (it is pasted into terminals). |
 | `language`    | no       | Two lowercase letters, such as `fr`. Default: `en`.             |
 
 Any other field is refused (the form fills only the first five).

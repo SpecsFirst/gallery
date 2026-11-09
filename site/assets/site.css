@@ -114,12 +114,13 @@ nav a { display: inline-flex; align-items: center; min-height: 40px; text-decora
 .empty { margin: 48px 0 0; color: var(--muted); }
 
 .filters { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 12px; margin-top: 40px; font-size: 14px; }
-.tags { display: flex; flex-wrap: wrap; gap: 0 16px; }
-.tags button { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 40px; min-height: 40px; padding: 0 4px; border: 0; background: none; color: var(--muted); font: inherit; cursor: pointer; }
-.tags button::after { content: ""; position: absolute; left: 4px; right: 4px; bottom: 6px; height: 2px; background: transparent; }
-.tags button:hover { color: var(--text); }
-.tags button[aria-pressed="true"] { color: var(--text); font-weight: 600; }
-.tags button[aria-pressed="true"]::after { background: var(--accent); }
+.filter-groups { display: flex; flex-direction: column; align-items: flex-start; gap: 4px 12px; min-width: 0; }
+.placement, .tags { display: flex; flex-wrap: wrap; gap: 0 16px; }
+.placement button, .tags button { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 40px; min-height: 40px; padding: 0 4px; border: 0; background: none; color: var(--muted); font: inherit; cursor: pointer; }
+.placement button::after, .tags button::after { content: ""; position: absolute; left: 4px; right: 4px; bottom: 6px; height: 2px; background: transparent; }
+.placement button:hover, .tags button:hover { color: var(--text); }
+.placement button[aria-pressed="true"], .tags button[aria-pressed="true"] { color: var(--text); font-weight: 600; }
+.placement button[aria-pressed="true"]::after, .tags button[aria-pressed="true"]::after { background: var(--accent); }
 .count { margin: 0; color: var(--muted); }
 
 .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
