@@ -2,4 +2,4 @@ name: In-repo feature spec
 url: https://github.com/SpecsFirst/template-in-repo-feature-specs
 description: 'Specs kept next to the code: an AGENTS.md, product and conventions, one folder per feature, and ADRs.'
 kind: software
-placement: standalone
+placement: in-repo
