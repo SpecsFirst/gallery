@@ -17,6 +17,7 @@ TOKEN = "ghs_SECRET_TOKEN_VALUE_123"  # noqa: S105 - a fake token for the tests
 
 SITE_YML = """\
 title: Test
+base_url: https://example.org/gallery/
 discussions:
   repo: Owner/the-repo
   repo_id: R_abc
