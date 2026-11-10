@@ -330,6 +330,7 @@ def test_unreadable_data_file_is_an_error_but_missing_is_not(repo, tmp_path, cap
 def test_site_config_is_read_from_site_yml(repo, tmp_path):
     (repo / "site.yml").write_text(
         "title: Other title\n"
+        "base_url: https://example.org/gallery/\n"
         "discussions:\n  repo: o/r\n  repo_id: RID\n  category: Cat\n"
         "  category_id: CID\n",
         encoding="utf-8",
@@ -355,6 +356,7 @@ def test_default_site_config_matches_the_spec():
         "category_id": "DIC_kwDOVlEEac4DKhwb",
     }
     assert site.title
+    assert site.base_url == "https://specsfirst.github.io/gallery/"
     assert site.repo_url == "https://github.com/SpecsFirst/gallery"
     assert site.submit_url == (
         "https://github.com/SpecsFirst/gallery/issues/new?template=submit-template.yml"
@@ -374,6 +376,26 @@ def test_invalid_site_config(tmp_path):
     path.write_text("title: x\ndiscussions:\n  repo: a/b\n", encoding="utf-8")
     with pytest.raises(BuildError):
         load_site_config(path)
+    path.write_text(
+        "title: x\ndiscussions:\n  repo: a/b\n  repo_id: R\n  category: C\n"
+        "  category_id: D\n",
+        encoding="utf-8",
+    )
+    for bad in (
+        "https://example.org/gallery",
+        "http://example.org/gallery/",
+        "https://user:pw@example.org/gallery/",
+        "https://example.org",
+        "//example.org/gallery/",
+    ):
+        path.write_text(
+            f"title: x\nbase_url: {bad}\n"
+            "discussions:\n  repo: a/b\n  repo_id: R\n  category: C\n"
+            "  category_id: D\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(BuildError):
+            load_site_config(path)
 
 
 # --------------------------------------------------------------- home page

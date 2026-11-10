@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://specsfirst.github.io/gallery/schema/api-v1.schema.json",
+  "title": "SpecsFirst gallery read-only API (v1)",
+  "description": "The API the build writes next to the HTML site: api/v1/templates.json and api/v1/templates/<id>.json (ADR-010). Objects allow additional properties, so new fields are only ever optional.",
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/$defs/index" },
+    { "$ref": "#/$defs/detail" }
+  ],
+  "$defs": {
+    "index": {
+      "type": "object",
+      "required": ["version", "generated_at", "templates"],
+      "properties": {
+        "version": { "const": "v1" },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "templates": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/template" }
+        }
+      }
+    },
+    "detail": {
+      "type": "object",
+      "required": ["version", "generated_at", "template"],
+      "properties": {
+        "version": { "const": "v1" },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "template": {
+          "allOf": [
+            { "$ref": "#/$defs/template" },
+            {
+              "type": "object",
+              "required": ["tree", "files", "truncated"],
+              "properties": {
+                "tree": { "type": ["string", "null"] },
+                "files": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "truncated": { "type": "boolean" }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "template": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "description",
+        "kind",
+        "tags",
+        "placement",
+        "url",
+        "ref",
+        "path",
+        "detection",
+        "license",
+        "updated",
+        "commit",
+        "stars",
+        "command",
+        "page",
+        "detail"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "kind": { "type": ["string", "null"] },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "placement": {
+          "type": "string",
+          "enum": ["standalone", "in-repo"]
+        },
+        "url": { "type": ["string", "null"] },
+        "ref": { "type": ["string", "null"] },
+        "path": { "type": ["string", "null"] },
+        "detection": {
+          "type": "string",
+          "enum": ["ok", "failed", "pending"]
+        },
+        "license": { "type": ["string", "null"] },
+        "updated": { "type": ["string", "null"], "format": "date-time" },
+        "commit": { "type": ["string", "null"] },
+        "stars": { "type": "integer", "minimum": 0 },
+        "command": { "type": ["string", "null"] },
+        "page": { "type": "string", "format": "uri" },
+        "detail": { "type": "string", "format": "uri" }
+      }
+    }
+  }
+}

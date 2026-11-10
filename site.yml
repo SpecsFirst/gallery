@@ -3,6 +3,9 @@
 
 title: SpecsFirst gallery
 
+# Where the site is served; the API's page and detail URLs start with it.
+base_url: https://specsfirst.github.io/gallery/
+
 discussions:
   repo: SpecsFirst/gallery
   repo_id: R_kgDOVlEEaQ

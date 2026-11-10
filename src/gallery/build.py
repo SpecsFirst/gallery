@@ -98,6 +98,7 @@ class SiteConfig:
     """The public configuration read from site.yml."""
 
     title: str
+    base_url: str
     discussions: dict[str, str]
 
     @property
@@ -122,11 +123,17 @@ def load_site_config(path: Path) -> SiteConfig:
         raise BuildError(f"{path}: missing 'discussions' mapping")
     if not isinstance(raw.get("title"), str):
         raise BuildError(f"{path}: 'title' must be a string")
+    if not _is_valid_base_url(raw.get("base_url")):
+        raise BuildError(
+            f"{path}: 'base_url' must be an https URL ending with '/' "
+            "and no credentials"
+        )
     for key in ("repo", "repo_id", "category", "category_id"):
         if not isinstance(discussions.get(key), str) or not discussions[key]:
             raise BuildError(f"{path}: 'discussions.{key}' must be a non-empty string")
     return SiteConfig(
         title=raw["title"],
+        base_url=raw["base_url"],
         discussions={k: str(v) for k, v in discussions.items()},
     )
 
@@ -169,6 +176,8 @@ class TemplateView:
     tree_truncated: bool = False
     tree_unavailable: str = "File tree unavailable: not analysed yet."
     command: str | None = None
+    kind: str | None = None
+    api_tags: tuple[str, ...] = ()
 
     @property
     def sort_name(self) -> str:
@@ -237,6 +246,19 @@ def _is_https(url: str) -> bool:
     except ValueError:
         return False
     return bool(parts.hostname) and parts.username is None and parts.password is None
+
+
+def _is_valid_base_url(value: Any) -> bool:
+    """The site's own URL: https, no credentials, and it ends with ``/``."""
+    if not isinstance(value, str) or not value.endswith("/"):
+        return False
+    try:
+        parts = urlsplit(value)
+    except ValueError:
+        return False
+    return parts.scheme == "https" and bool(parts.hostname) and (
+        parts.username is None and parts.password is None
+    )
 
 
 def _license_view(value: Any) -> tuple[str, str]:
@@ -359,6 +381,8 @@ def build_view(
         star_url=_star_url(votes, site.repo_url),
         placement=placement,
         placement_text="Own repo" if placement == "standalone" else "Code repo",
+        kind=_text(fields.get("kind")) or None,
+        api_tags=tuple(resolved_tags(taxonomy, fields.get("tags"))),
     )
 
     entry_command = _text(fields.get("command"))
@@ -496,6 +520,10 @@ def build(
         output / "schema" / "template.schema.json",
     )
     (output / ".nojekyll").write_text("", encoding="utf-8")
+
+    from gallery.api import write_documents
+
+    write_documents(views, detected, site, output)
     return len(views)
 
 
