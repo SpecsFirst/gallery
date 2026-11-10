@@ -1,0 +1,6 @@
+name: Multi-repo specs
+url: https://github.com/SpecsFirst/template-multi-repo-specs
+description: A model-agnostic specs repo driving several code repos, with task files as contracts between orchestrator and coder.
+kind: software
+tags: [multi-repo]
+placement: standalone
