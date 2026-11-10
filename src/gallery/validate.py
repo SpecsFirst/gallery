@@ -24,6 +24,9 @@ from jsonschema import Draft202012Validator
 from gallery.registry import RegistryError, load_entry, load_schema, load_taxonomy
 
 ID_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+# Control and bidirectional-override characters: a command is pasted into terminals,
+# and bidi controls can make it read differently from what it runs.
+_COMMAND_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]")
 
 
 @dataclass(frozen=True)
@@ -192,6 +195,17 @@ def _check_entry(entry, path: Path, taxonomy, schema, issues: list[Issue]) -> No
                 message="ref must not start with '-'",
                 field="ref",
                 code="ref",
+            )
+        )
+
+    command = data.get("command")
+    if isinstance(command, str) and _COMMAND_CONTROL_RE.search(command):
+        issues.append(
+            Issue(
+                file=path,
+                message="command must not contain control or bidi characters",
+                field="command",
+                code="command",
             )
         )
 

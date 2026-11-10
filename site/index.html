@@ -9,23 +9,30 @@
 {% block content %}
 <section class="intro">
   <h1>Spec templates for agent-driven projects.</h1>
-  <p>A specs repo holds what a project is about (goals, conventions, tasks), written for the humans and AI agents who build it. Compare the structures below, star the ones you like, and start yours with a single command.</p>
+  <p>Specs hold what a project is about (goals, conventions, tasks), written for the humans and AI agents who build it, in their own repo or next to the code. Compare the structures below, star the ones you like, and start yours with a single command.</p>
 </section>
 
 {% if cards %}
 <div class="filters">
-  <div class="tags" id="filters" role="group" aria-label="Filter by tag">
-    <button type="button" data-tag="" aria-pressed="true" hidden>All</button>
-    {% for tag in filters %}
-    <button type="button" data-tag="{{ tag.name }}" aria-pressed="false" hidden><span class="dot c{{ tag.color }}"></span>{{ tag.name }}</button>
-    {% endfor %}
+  <div class="filter-groups">
+    <div class="placement" id="placement" role="group" aria-label="Filter by location">
+      <button type="button" data-placement="" aria-pressed="true" hidden>All</button>
+      <button type="button" data-placement="standalone" aria-pressed="false" hidden>Own repo</button>
+      <button type="button" data-placement="in-repo" aria-pressed="false" hidden>Code repo</button>
+    </div>
+    <div class="tags" id="filters" role="group" aria-label="Filter by tag">
+      <button type="button" data-tag="" aria-pressed="true" hidden>All</button>
+      {% for tag in filters %}
+      <button type="button" data-tag="{{ tag.name }}" aria-pressed="false" hidden><span class="dot c{{ tag.color }}"></span>{{ tag.name }}</button>
+      {% endfor %}
+    </div>
   </div>
   <p class="count" id="count" aria-live="polite">{{ cards|length }} {{ 'template' if cards|length == 1 else 'templates' }}, sorted by stars</p>
 </div>
 
 <div class="grid">
   {% for v in cards %}
-  <article class="card" data-id="{{ v.id }}" data-tags='{{ v.tag_names|tojson }}'>
+  <article class="card" data-id="{{ v.id }}" data-tags='{{ v.tag_names|tojson }}' data-placement="{{ v.placement }}">
     <div class="card-head">
       <div>
         <h2><a href="templates/{{ v.id }}/">{{ v.name }}</a></h2>

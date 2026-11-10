@@ -6,12 +6,13 @@ body:
   - type: markdown
     attributes:
       value: |
-        Fill in these four fields. A bot checks your repository and answers on this issue
+        Fill in these fields. A bot checks your repository and answers on this issue
         with the entry it would add and a link that proposes the file from your fork.
 
-        The license, the last update, Copier support and the file tree are detected
-        from your repository: do not type them. A 👍 on the template's Discussion is a
-        star.
+        The gallery only lists model- and provider-agnostic templates: it refuses a
+        repository that holds files for one agent tool. The license, the last update,
+        Copier support and the file tree are detected from your repository: do not type
+        them. A 👍 on the template's Discussion is a star.
   - type: input
     id: url
     attributes:
@@ -36,6 +37,16 @@ body:
       placeholder: A specs repo for a lab course, where students and agents share one task board.
     validations:
       required: true
+  - type: dropdown
+    id: placement
+    attributes:
+      label: Where do the specs live?
+      description: Does the repository hold the specs themselves, or just the code they drive?
+      options:
+        - In their own repo
+        - In the code repo
+    validations:
+      required: true
   - type: input
     id: tags
     attributes:
@@ -46,3 +57,21 @@ body:
       placeholder: research, teaching, bench
     validations:
       required: true
+  - type: input
+    id: command
+    attributes:
+      label: Install command
+      description: >-
+        Optional. The exact one-line command to install the template, e.g. with
+        Copier. Leave it empty to let the gallery build one from a copier.yml.
+      placeholder: copier copy https://github.com/you/your-template my-project
+    validations:
+      required: false
+  - type: checkboxes
+    id: agnostic
+    attributes:
+      label: Model and provider agnosticism
+      description: The gallery refuses templates that ship files for one agent tool.
+      options:
+        - label: This template is model- and provider-agnostic
+          required: true

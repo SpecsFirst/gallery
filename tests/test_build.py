@@ -399,8 +399,12 @@ def test_home_header_and_intro(repo, tmp_path):
     (h1,) = index.find("h1")
     assert h1.text() == "Spec templates for agent-driven projects."
     intro = index.by_class("intro")[0]
-    assert intro.find("p")[0].text().startswith("A specs repo holds what a project")
-    assert intro.find("p")[0].text().endswith("start yours with a single command.")
+    assert intro.find("p")[0].text() == (
+        "Specs hold what a project is about (goals, conventions, tasks), written "
+        "for the humans and AI agents who build it, in their own repo or next to "
+        "the code. Compare the structures below, star the ones you like, and "
+        "start yours with a single command."
+    )
     assert not index.find("footer")
     assert len(index.find("main")) == 1
 
@@ -431,6 +435,7 @@ def test_card_structure_and_order_of_elements(repo, tmp_path):
     assert star.attrs["href"].startswith("https://github.com/")
     assert dl.tag == "dl" and list(meta(card)) == [
         "License",
+        "Lives in",
         "Updated",
         "Source",
         "Tags",
@@ -485,6 +490,13 @@ def test_controls_are_hidden_without_javascript(repo, tmp_path):
     buttons = group.find("button")
     assert buttons and all("hidden" in b.attrs for b in buttons)
     assert all(b.attrs["type"] == "button" for b in buttons)
+    placement = index.by_id("placement")
+    assert placement.attrs["role"] == "group"
+    assert placement.attrs["aria-label"] == "Filter by location"
+    placement_buttons = placement.find("button")
+    assert placement_buttons and all("hidden" in b.attrs for b in placement_buttons)
+    assert all(b.attrs["type"] == "button" for b in placement_buttons)
+    assert [b.words() for b in placement_buttons] == ["All", "Own repo", "Code repo"]
     # nothing else is hidden: every card shows and the count is readable
     cards = index.find("article")
     assert len(cards) == 2 and all("hidden" not in c.attrs for c in cards)
@@ -673,7 +685,9 @@ def test_deprecated_tag_is_resolved_on_card_and_page(repo, tmp_path):
             "thesis",
         ]
     assert "phd" not in index.text()
-    assert "phd" not in [b.attrs["data-tag"] for b in index.find("button")]
+    assert "phd" not in [
+        b.attrs["data-tag"] for b in index.by_id("filters").find("button")
+    ]
 
 
 def test_build_filters_unit(repo):
@@ -900,6 +914,76 @@ def test_repo_link_requires_https(repo, tmp_path):
         assert not page.by_class("cmd")
 
 
+# ---------------------------------------------------------- the placement
+
+
+def test_placement_defaults_to_standalone(repo, tmp_path):
+    out = build_site(repo, tmp_path)
+
+    card = card_of(out)
+    assert meta(card)["Lives in"].text() == "Own repo"
+    assert card.attrs["data-placement"] == "standalone"
+    assert meta(page_card(out))["Lives in"].text() == "Own repo"
+
+
+def test_placement_in_repo_label(repo, tmp_path):
+    write_entry(repo, "alpha", {**VALID_ENTRY, "placement": "in-repo"})
+    out = build_site(repo, tmp_path)
+
+    card = card_of(out)
+    assert meta(card)["Lives in"].text() == "Code repo"
+    assert card.attrs["data-placement"] == "in-repo"
+    assert meta(page_card(out))["Lives in"].text() == "Code repo"
+
+
+def test_placement_is_the_second_meta_row_on_card_and_page(repo, tmp_path):
+    write_entry(repo, "alpha", {**VALID_ENTRY, "placement": "in-repo"})
+    out = build_site(repo, tmp_path)
+
+    for element in (card_of(out), page_card(out)):
+        rows = list(meta(element).items())
+        assert [name for name, _ in rows] == [
+            "License",
+            "Lives in",
+            "Updated",
+            "Source",
+            "Tags",
+        ]
+        assert rows[1] == ("Lives in", meta(element)["Lives in"])
+        assert rows[1][1].text() == "Code repo"
+
+
+def test_unknown_placement_value_defaults_to_standalone(repo, tmp_path):
+    write_entry(repo, "alpha", {**VALID_ENTRY, "placement": "elsewhere"})
+    out = build_site(repo, tmp_path)
+
+    assert meta(card_of(out))["Lives in"].text() == "Own repo"
+    assert card_of(out).attrs["data-placement"] == "standalone"
+
+
+def test_placement_filter_markup_and_card_data(repo, tmp_path):
+    out = build_site(repo, tmp_path)
+
+    index = parse(out / "index.html")
+    placement = index.by_id("placement")
+    assert placement.attrs["role"] == "group"
+    assert placement.attrs["aria-label"] == "Filter by location"
+    buttons = placement.find("button")
+    assert [b.words() for b in buttons] == ["All", "Own repo", "Code repo"]
+    assert [b.attrs["data-placement"] for b in buttons] == ["", "standalone", "in-repo"]
+    assert buttons[0].attrs["aria-pressed"] == "true"
+    assert all(b.attrs["aria-pressed"] == "false" for b in buttons[1:])
+    # each card carries its placement
+    for ident, card in index.cards().items():
+        assert card.attrs["data-placement"] in ("standalone", "in-repo")
+    # the placement control sits above the tag filter
+    filter_groups = index.by_class("filter-groups")[0]
+    children = [c.tag for c in filter_groups.children]
+    assert children == ["div", "div"]
+    assert filter_groups.children[0].attrs["id"] == "placement"
+    assert filter_groups.children[1].attrs["id"] == "filters"
+
+
 # ----------------------------------------------------------------- the order
 
 
@@ -1042,7 +1126,7 @@ def test_template_page_content_and_order(repo, tmp_path):
     assert head.find("p")[0].text() == VALID_ENTRY["description"]
     assert star_of(head).attrs["aria-label"] == "Star Alpha template on GitHub, 1 star"
     assert dl.tag == "dl"
-    assert list(meta(card)) == ["License", "Updated", "Source", "Tags"]
+    assert list(meta(card)) == ["License", "Lives in", "Updated", "Source", "Tags"]
     assert tree.classes() == ["tree"]
     assert cmd.classes() == ["cmd"]
     assert page.find("title")[0].text() == "Alpha template - SpecsFirst gallery"
@@ -1101,6 +1185,64 @@ def test_copier_command_forms(repo, tmp_path, path, ref, expected):
     assert code.text() == expected
     assert copier_command(URL, path, ref) == expected
     assert "<name>" not in expected
+
+
+@pytest.mark.parametrize(
+    ("path", "ref", "expected"),
+    [
+        (None, None, f"copier copy {URL} ."),
+        (None, "v1.0", f"copier copy --vcs-ref v1.0 {URL} ."),
+        (
+            "sub/dir",
+            None,
+            f"git clone {URL} ../template-src"
+            " && copier copy ../template-src/sub/dir .",
+        ),
+        (
+            "sub/dir",
+            "v1.0",
+            f"git clone {URL} ../template-src && git -C ../template-src checkout v1.0"
+            " && copier copy ../template-src/sub/dir .",
+        ),
+    ],
+)
+def test_copier_command_in_repo_uses_dot_and_sibling_clone(
+    repo, tmp_path, path, ref, expected
+):
+    fields = {**VALID_ENTRY, "name": "Alpha template", "placement": "in-repo"}
+    if path:
+        fields["path"] = path
+    if ref:
+        fields["ref"] = ref
+    write_entry(repo, "alpha", fields)
+    out = build_site(repo, tmp_path, det={"alpha": detected(copier=True)})
+
+    (code,) = page_of(out).by_class("cmd")[0].find("code")
+    assert code.text() == expected
+    assert copier_command(URL, path, ref, in_repo=True) == expected
+    # the standalone form stays the historical one
+    assert copier_command(URL, path, ref) != expected
+
+
+def test_entry_command_wins_and_shows_even_when_detect_failed(repo, tmp_path):
+    write_entry(
+        repo,
+        "alpha",
+        {**VALID_ENTRY, "name": "Alpha template", "command": "make scaffold"},
+    )
+    for det in ({"alpha": FAILED}, None, {"alpha": detected(copier=True)}):
+        out = build_site(repo, tmp_path / str(det is not None), det=det)
+
+        (code,) = page_of(out).by_class("cmd")[0].find("code")
+        assert code.text() == "make scaffold"
+        assert "copier copy" not in page_of(out).text()
+
+
+def test_entry_command_is_not_used_when_missing(repo, tmp_path):
+    out = build_site(repo, tmp_path, det={"alpha": detected(copier=True)})
+
+    (code,) = page_of(out).by_class("cmd")[0].find("code")
+    assert code.text() == f"copier copy {URL} my-project"
 
 
 @pytest.mark.parametrize("copier", [False, None, "yes"])

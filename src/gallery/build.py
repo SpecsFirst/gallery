@@ -159,6 +159,8 @@ class TemplateView:
     ref: str | None
     votes: int
     star_url: str
+    placement: str = "standalone"
+    placement_text: str = "Own repo"
     license_text: str = "Unknown"
     license_class: str = "muted"  # "", "warn" or "muted"
     updated: datetime | None = None
@@ -251,12 +253,15 @@ def _source_text(url: str) -> str:
     return url.removeprefix("https://").rstrip("/")
 
 
-def copier_command(url: str, path: str | None, ref: str | None) -> str | None:
+def copier_command(
+    url: str, path: str | None, ref: str | None, in_repo: bool = False
+) -> str | None:
     """The command to use a template with Copier, as pasted into a terminal.
 
-    The new project is called ``my-project``. Values are shell-quoted. ``None``
-    when a value could be read as an option or escape the checkout (validation
-    refuses these too).
+    Standalone copies into a new ``my-project`` folder; in-repo copies into the
+    current directory (``.``), so the template lands in an existing code repo.
+    Values are shell-quoted. ``None`` when a value could be read as an option or
+    escape the checkout (validation refuses these too).
     """
     if not _is_https(url):
         return None
@@ -267,15 +272,20 @@ def copier_command(url: str, path: str | None, ref: str | None) -> str | None:
         if not path or path.startswith("/") or ".." in segments:
             return None
     quote = shlex.quote
-    project = PROJECT_NAME
+    if in_repo:
+        destination = "."
+        clone = "../template-src"
+    else:
+        destination = PROJECT_NAME
+        clone = f"{PROJECT_NAME}-src"
     if path is None:
         if ref is None:
-            return f"copier copy {quote(url)} {project}"
-        return f"copier copy --vcs-ref {quote(ref)} {quote(url)} {project}"
-    steps = [f"git clone {quote(url)} {project}-src"]
+            return f"copier copy {quote(url)} {destination}"
+        return f"copier copy --vcs-ref {quote(ref)} {quote(url)} {destination}"
+    steps = [f"git clone {quote(url)} {clone}"]
     if ref is not None:
-        steps.append(f"git -C {project}-src checkout {quote(ref)}")
-    steps.append(f"copier copy {project}-src/{quote(path)} {project}")
+        steps.append(f"git -C {clone} checkout {quote(ref)}")
+    steps.append(f"copier copy {clone}/{quote(path)} {destination}")
     return " && ".join(steps)
 
 
@@ -325,6 +335,9 @@ def build_view(
     url = _text(fields.get("url"), "") or ""
     path = _text(fields.get("path")) or None
     ref = _text(fields.get("ref")) or None
+    placement = _text(fields.get("placement")) or "standalone"
+    if placement not in ("standalone", "in-repo"):
+        placement = "standalone"
     positions = tag_positions(taxonomy)
     names: list[str] = []
     kind = _text(fields.get("kind"), "") or ""
@@ -344,7 +357,14 @@ def build_view(
         ref=ref,
         votes=0,
         star_url=_star_url(votes, site.repo_url),
+        placement=placement,
+        placement_text="Own repo" if placement == "standalone" else "Code repo",
     )
+
+    entry_command = _text(fields.get("command"))
+    if entry_command is not None:
+        # the entry's own command wins and shows even when detection failed
+        view.command = entry_command
 
     count = (votes or {}).get("votes")
     if isinstance(count, int) and not isinstance(count, bool) and count > 0:
@@ -368,8 +388,8 @@ def build_view(
         view.tree_text = rendered.text
         view.tree_summary = rendered.summary
         view.tree_truncated = detected.get("tree_truncated") is True
-    if detected.get("copier") is True:
-        view.command = copier_command(url, path, ref)
+    if detected.get("copier") is True and view.command is None:
+        view.command = copier_command(url, path, ref, in_repo=placement == "in-repo")
     return view
 
 
