@@ -41,7 +41,7 @@ body:
     id: placement
     attributes:
       label: Where do the specs live?
-      description: Does the repository hold the specs themselves, or just the code they drive?
+      description: In a project made from your template, are the specs a repository of their own, or a folder inside the code repository?
       options:
         - In their own repo
         - In the code repo

@@ -168,7 +168,7 @@ def test_load_registry_uses_real_files(tmp_path):
     registry = load_registry(pkg_dir)
     assert "research" in registry.taxonomy.kinds
     assert "thesis" in registry.taxonomy.active_tags
-    assert len(registry.entries) == 2
+    assert len(registry.entries) == len(list((pkg_dir / "templates").glob("*.yml")))
 
 
 def test_load_registry_never_reads_symlink(tmp_path):
